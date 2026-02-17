@@ -152,6 +152,10 @@ func loadSamples(scenario string, inputPath string) ([]attribution.FaultSample, 
 		return attribution.LoadSamplesFromJSONL(inputPath)
 	}
 
+	if scenario == "mixed_faults" {
+		return buildMixedFaultSamples(), nil
+	}
+
 	faultLabel := scenario
 	expectedDomain := attribution.MapFaultLabel(faultLabel)
 	if expectedDomain == "unknown" {
@@ -160,23 +164,49 @@ func loadSamples(scenario string, inputPath string) ([]attribution.FaultSample, 
 
 	samples := make([]attribution.FaultSample, 0, 12)
 	for idx := 0; idx < 12; idx++ {
-		timestamp := time.Now().UTC().Add(time.Duration(idx) * time.Second)
-		samples = append(samples, attribution.FaultSample{
-			IncidentID:     fmt.Sprintf("inc-%02d", idx+1),
-			Timestamp:      timestamp,
-			Cluster:        "local",
-			Namespace:      "default",
-			Service:        "chat",
-			FaultLabel:     faultLabel,
-			ExpectedDomain: expectedDomain,
-			Confidence:     0.9,
-			BurnRate:       2.0,
-			WindowMinutes:  5,
-			RequestID:      fmt.Sprintf("req-%02d", idx+1),
-			TraceID:        fmt.Sprintf("trace-%02d", idx+1),
-		})
+		samples = append(samples, buildSample(faultLabel, expectedDomain, idx))
 	}
 	return samples, nil
+}
+
+func buildMixedFaultSamples() []attribution.FaultSample {
+	samples := make([]attribution.FaultSample, 0, 12)
+	labels := []string{
+		"provider_throttle",
+		"dns_latency",
+		"provider_throttle",
+		"dns_latency",
+		"provider_throttle",
+		"dns_latency",
+		"provider_throttle",
+		"dns_latency",
+		"provider_throttle",
+		"dns_latency",
+		"provider_throttle",
+		"dns_latency",
+	}
+	for idx, label := range labels {
+		samples = append(samples, buildSample(label, attribution.MapFaultLabel(label), idx))
+	}
+	return samples
+}
+
+func buildSample(faultLabel string, expectedDomain string, idx int) attribution.FaultSample {
+	timestamp := time.Now().UTC().Add(time.Duration(idx) * time.Second)
+	return attribution.FaultSample{
+		IncidentID:     fmt.Sprintf("inc-%02d", idx+1),
+		Timestamp:      timestamp,
+		Cluster:        "local",
+		Namespace:      "default",
+		Service:        "chat",
+		FaultLabel:     faultLabel,
+		ExpectedDomain: expectedDomain,
+		Confidence:     0.9,
+		BurnRate:       2.0,
+		WindowMinutes:  5,
+		RequestID:      fmt.Sprintf("req-%02d", idx+1),
+		TraceID:        fmt.Sprintf("trace-%02d", idx+1),
+	}
 }
 
 func writeIncidentPredictions(
