@@ -17,6 +17,14 @@ go run ./cmd/attributor --out -
 ```bash
 go run ./cmd/benchgen --out artifacts/benchmarks --scenario provider_throttle
 ```
+6. Generate mixed-fault benchmark artifacts:
+```bash
+go run ./cmd/benchgen --out artifacts/benchmarks-mixed --scenario mixed_faults
+```
+7. Run benchmark using explicit JSONL fault stream:
+```bash
+go run ./cmd/benchgen --out artifacts/benchmarks-input --input pkg/benchmark/testdata/mixed_fault_samples.jsonl
+```
 
 ## Differentiation Artifacts
 - `docs/strategy/differentiation-strategy.md`
