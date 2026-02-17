@@ -15,11 +15,20 @@ func TestGenerateArtifacts(t *testing.T) {
 	required := []string{
 		"attribution_summary.json",
 		"confusion-matrix.csv",
-		filepath.Join("metrics", "incident_predictions.csv"),
+		"incident_predictions.csv",
+		"collector_overhead.csv",
+		"provenance.json",
 	}
 	for _, name := range required {
 		if _, err := os.Stat(filepath.Join(tmp, name)); err != nil {
 			t.Fatalf("missing artifact %s: %v", name, err)
 		}
+	}
+}
+
+func TestGenerateArtifactsRejectsUnsupportedScenario(t *testing.T) {
+	tmp := t.TempDir()
+	if err := GenerateArtifacts(tmp, "not_a_scenario", "rag_mixed"); err == nil {
+		t.Fatal("expected unsupported scenario error")
 	}
 }

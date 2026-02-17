@@ -12,9 +12,10 @@ func main() {
 	out := flag.String("out", "artifacts/benchmarks", "output directory")
 	scenario := flag.String("scenario", "provider_throttle", "fault scenario")
 	workload := flag.String("workload", "rag_mixed", "workload profile")
+	input := flag.String("input", "", "optional JSONL fault sample input")
 	flag.Parse()
 
-	if err := benchmark.GenerateArtifacts(*out, *scenario, *workload); err != nil {
+	if err := benchmark.GenerateArtifactsWithInput(*out, *scenario, *workload, *input); err != nil {
 		fmt.Fprintf(os.Stderr, "benchmark generation failed: %v\n", err)
 		os.Exit(1)
 	}

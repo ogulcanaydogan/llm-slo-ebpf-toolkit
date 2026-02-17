@@ -8,17 +8,18 @@ import (
 
 // FaultSample is the normalized benchmark input for attribution.
 type FaultSample struct {
-	IncidentID    string    `json:"incident_id"`
-	Timestamp     time.Time `json:"timestamp"`
-	Cluster       string    `json:"cluster"`
-	Namespace     string    `json:"namespace"`
-	Service       string    `json:"service"`
-	FaultLabel    string    `json:"fault_label"`
-	Confidence    float64   `json:"confidence"`
-	BurnRate      float64   `json:"burn_rate"`
-	WindowMinutes int       `json:"window_minutes"`
-	RequestID     string    `json:"request_id"`
-	TraceID       string    `json:"trace_id"`
+	IncidentID     string    `json:"incident_id"`
+	Timestamp      time.Time `json:"timestamp"`
+	Cluster        string    `json:"cluster"`
+	Namespace      string    `json:"namespace"`
+	Service        string    `json:"service"`
+	FaultLabel     string    `json:"fault_label"`
+	ExpectedDomain string    `json:"expected_domain,omitempty"`
+	Confidence     float64   `json:"confidence"`
+	BurnRate       float64   `json:"burn_rate"`
+	WindowMinutes  int       `json:"window_minutes"`
+	RequestID      string    `json:"request_id"`
+	TraceID        string    `json:"trace_id"`
 }
 
 // MapFaultLabel maps scenario labels into schema-constrained domains.

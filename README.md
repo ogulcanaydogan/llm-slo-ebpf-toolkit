@@ -11,7 +11,11 @@ go run ./cmd/collector
 ```
 4. Run attribution sample output:
 ```bash
-go run ./cmd/attributor
+go run ./cmd/attributor --out -
+```
+5. Generate benchmark skeleton artifacts:
+```bash
+go run ./cmd/benchgen --out artifacts/benchmarks --scenario provider_throttle
 ```
 
 ## Differentiation Artifacts
