@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-slo-ebpf-toolkit.dev/contracts/v1/incident-attribution.schema.json",
+  "title": "IncidentAttributionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "incident_id",
+    "timestamp",
+    "cluster",
+    "service",
+    "predicted_fault_domain",
+    "confidence",
+    "evidence",
+    "slo_impact"
+  ],
+  "properties": {
+    "incident_id": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "cluster": {"type": "string"},
+    "namespace": {"type": "string"},
+    "service": {"type": "string"},
+    "predicted_fault_domain": {
+      "type": "string",
+      "enum": [
+        "network_dns",
+        "network_egress",
+        "cpu_throttle",
+        "memory_pressure",
+        "provider_throttle",
+        "provider_error",
+        "retrieval_backend",
+        "unknown"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal", "value", "source"],
+        "properties": {
+          "signal": {"type": "string"},
+          "value": {"type": ["string", "number", "boolean"]},
+          "source": {
+            "type": "string",
+            "enum": ["ebpf", "otel", "kubernetes", "application"]
+          }
+        }
+      }
+    },
+    "slo_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sli", "burn_rate", "window_minutes"],
+      "properties": {
+        "sli": {"type": "string"},
+        "burn_rate": {"type": "number"},
+        "window_minutes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "trace_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "request_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

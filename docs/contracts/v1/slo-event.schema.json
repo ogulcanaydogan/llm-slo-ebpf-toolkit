@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-slo-ebpf-toolkit.dev/contracts/v1/slo-event.schema.json",
+  "title": "SloEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "timestamp",
+    "cluster",
+    "namespace",
+    "workload",
+    "service",
+    "request_id",
+    "sli_name",
+    "sli_value",
+    "unit",
+    "status"
+  ],
+  "properties": {
+    "event_id": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "cluster": {"type": "string"},
+    "namespace": {"type": "string"},
+    "workload": {"type": "string"},
+    "service": {"type": "string"},
+    "request_id": {"type": "string"},
+    "trace_id": {"type": "string"},
+    "sli_name": {
+      "type": "string",
+      "enum": [
+        "ttft_ms",
+        "request_latency_ms",
+        "token_throughput_tps",
+        "error_rate",
+        "retrieval_latency_ms",
+        "provider_error_rate"
+      ]
+    },
+    "sli_value": {"type": "number"},
+    "unit": {"type": "string"},
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warning", "breach"]
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

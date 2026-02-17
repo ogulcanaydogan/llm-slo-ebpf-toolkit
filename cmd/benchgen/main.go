@@ -1,0 +1,22 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/benchmark"
+)
+
+func main() {
+	out := flag.String("out", "artifacts/benchmarks", "output directory")
+	scenario := flag.String("scenario", "provider_throttle", "fault scenario")
+	workload := flag.String("workload", "rag_mixed", "workload profile")
+	flag.Parse()
+
+	if err := benchmark.GenerateArtifacts(*out, *scenario, *workload); err != nil {
+		fmt.Fprintf(os.Stderr, "benchmark generation failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("benchmark artifacts written to %s\n", *out)
+}
