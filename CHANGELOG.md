@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.0-alpha.2 - 2026-02-17
+- Added attribution pipeline utilities for batch conversion, confusion matrix generation, and accuracy scoring.
+- Added JSONL fault-sample loader and test coverage for loader and attribution math.
+- Upgraded `cmd/attributor` with `--input`, `--out`, `--summary-out`, and `--confusion-out` outputs.
+- Reworked benchmark harness to emit contract-aligned artifacts: `incident_predictions.csv`, `confusion-matrix.csv`, `collector_overhead.csv`, `attribution_summary.json`, and `provenance.json`.
+- Added benchmark harness validation for unsupported scenarios and expanded quickstart commands.
+
 ## v0.1.0-alpha.1 - 2026-02-17
 - Initialized Go repository with CI, tests, lint config, and benchmark scaffolding.
 - Added collector pipeline producing schema-validated `slo-event` records.
