@@ -43,12 +43,17 @@ jobs:
           make test
           make correlation-gate
           make schema-validate
+      - name: Build local agent image for kind
+        run: docker build -t llm-slo-agent:ci -f cmd/agent/Dockerfile .
 
       - name: Deploy kind cluster and observability stack
         run: |
           make kind-up
+          kind load docker-image --name llm-slo-lab llm-slo-agent:ci
           kubectl apply -k deploy/observability
           kubectl apply -k deploy/k8s
+          kubectl -n llm-slo-system set image daemonset/llm-slo-agent agent=llm-slo-agent:ci
+          kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
 
       - name: Run full scenario matrix (6 scenarios × 3 reruns)
         run: |
