@@ -421,15 +421,6 @@ func TestEvaluateBaselineIndependenceFail(t *testing.T) {
 	}
 }
 
-func writeRun(t *testing.T, root string, scenario string, run int, ttft []float64, tps []float64, cpu float64) {
-	t.Helper()
-	errs := make([]float64, len(ttft))
-	for i := range errs {
-		errs[i] = 0.01
-	}
-	writeRunWithOptions(t, root, scenario, run, ttft, tps, errs, []cpuRow{{node: "node-a", cpu: cpu}})
-}
-
 func writeRunWithOptions(
 	t *testing.T,
 	root string,
