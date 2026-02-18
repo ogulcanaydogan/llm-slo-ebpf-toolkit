@@ -1,0 +1,48 @@
+name: provider_throttle
+description: >
+  Simulates upstream LLM provider rate limiting or degradation. Models
+  scenarios where the inference API returns 429/503 responses, causing
+  elevated connect latency, TLS renegotiation, and connection errors.
+
+fault_profile:
+  connect_latency_ms: 45
+  tls_handshake_ms: 55
+  connect_errors: 1
+  connect_errno: 110
+  dns_latency_ms: 12
+  tcp_retransmits: 0.2
+
+expected_impact:
+  ttft_breach: true
+  primary_signal: connect_latency_ms
+  secondary_signals:
+    - tls_handshake_ms
+    - connect_errors
+  error_rate_elevated: true
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: llm_slo_ttft_ms_p95
+    operator: ">"
+    value: 800
+    phase: fault
+  - metric: error_rate
+    operator: ">"
+    value: 0.10
+    phase: fault
+  - metric: connect_latency_ms_p95
+    operator: ">"
+    value: 40
+    phase: fault

@@ -1,0 +1,84 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: llm-slo-alerts
+  namespace: observability
+  labels:
+    app: llm-slo-ebpf-toolkit
+spec:
+  groups:
+    - name: llm-slo.rules
+      rules:
+        - alert: LLMSLOTTFTBudgetBurning
+          expr: |
+            (
+              sum(rate(llm_slo_ttft_ms_bucket{le="800"}[5m]))
+              / sum(rate(llm_slo_ttft_ms_count[5m]))
+            ) < 0.95
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "TTFT SLO budget burn rate exceeds threshold"
+            description: >
+              Less than 95% of requests are meeting the 800ms TTFT SLO target
+              over the last 5 minutes. Current compliance:
+              {{ $value | humanizePercentage }}.
+
+        - alert: LLMSLOErrorRateHigh
+          expr: |
+            (
+              sum(rate(llm_slo_requests_total{status!="ok"}[5m]))
+              / sum(rate(llm_slo_requests_total[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "LLM request error rate exceeds 5%"
+            description: >
+              The fraction of non-ok requests has exceeded 5% for 5 minutes.
+              Current error rate: {{ $value | humanizePercentage }}.
+
+        - alert: LLMSLOCorrelationDegraded
+          expr: |
+            (
+              sum(rate(llm_slo_correlation_total{enriched="true"}[10m]))
+              / sum(rate(llm_slo_correlation_total[10m]))
+            ) < 0.70
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "eBPF correlation enrichment rate below 70%"
+            description: >
+              The fraction of correlations meeting the 0.70 confidence
+              threshold has dropped below 70% over 10 minutes. This may
+              indicate probe failures or a shift in traffic patterns.
+              Current enrichment rate: {{ $value | humanizePercentage }}.
+
+        - alert: LLMSLOAgentHeartbeatStale
+          expr: |
+            (time() - max(llm_slo_agent_heartbeat)) > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "eBPF agent heartbeat is stale"
+            description: >
+              No heartbeat received from the eBPF agent DaemonSet for
+              over 5 minutes. The agent may have crashed or lost
+              connectivity.
+
+        - alert: LLMSLOOverheadHigh
+          expr: |
+            max(llm_slo_agent_cpu_overhead_pct) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "eBPF agent CPU overhead exceeds 5%"
+            description: >
+              The eBPF agent is consuming more than 5% CPU on at least
+              one node for over 5 minutes, exceeding the development
+              overhead gate. Current max: {{ $value }}%.

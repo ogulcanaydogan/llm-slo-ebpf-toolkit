@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${OUT_DIR:-$ROOT_DIR/artifacts/benchmarks-matrix}"
 COUNT="${COUNT:-24}"
-SCENARIOS=(provider_throttle dns_latency cpu_throttle memory_pressure mixed)
+SCENARIOS=(provider_throttle dns_latency cpu_throttle memory_pressure network_partition mixed)
 
 mkdir -p "$OUT_DIR"
 

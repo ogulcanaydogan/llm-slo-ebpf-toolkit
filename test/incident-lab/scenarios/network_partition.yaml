@@ -1,0 +1,57 @@
+name: network_partition
+description: >
+  Simulates a partial network partition causing widespread connection
+  failures, TCP retransmission storms, and DNS timeouts. Models scenarios
+  where inter-AZ or inter-region connectivity degrades, causing cascading
+  failures across the retrieval and inference pipeline.
+
+fault_profile:
+  connect_latency_ms: 350
+  connect_errors: 3
+  connect_errno: 113
+  tcp_retransmits: 12
+  dns_latency_ms: 180
+  tls_handshake_fails: 2
+  runqueue_delay_ms: 4
+  cpu_steal_pct: 0.6
+
+expected_impact:
+  ttft_breach: true
+  primary_signal: connect_latency_ms
+  secondary_signals:
+    - tcp_retransmits_total
+    - dns_latency_ms
+    - connect_errors
+  error_rate_elevated: true
+  retry_storm_expected: true
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: llm_slo_ttft_ms_p95
+    operator: ">"
+    value: 800
+    phase: fault
+  - metric: error_rate
+    operator: ">"
+    value: 0.20
+    phase: fault
+  - metric: tcp_retransmits_total_rate
+    operator: ">"
+    value: 5
+    phase: fault
+  - metric: connect_latency_ms_p95
+    operator: ">"
+    value: 300
+    phase: fault

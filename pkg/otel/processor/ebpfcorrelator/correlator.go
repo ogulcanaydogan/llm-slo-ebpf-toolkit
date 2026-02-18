@@ -154,9 +154,33 @@ func signalAttrKey(signal string) (string, bool) {
 		return semconv.AttrTLSHandshakeMS, true
 	case "cpu_steal_pct":
 		return semconv.AttrCPUStealPct, true
+	case "cfs_throttled_ms":
+		return semconv.AttrCFSThrottledMS, true
 	default:
 		return "", false
 	}
+}
+
+// DecomposeRetrieval sums kernel-attributed retrieval latency components
+// (DNS + connect + TLS handshake) from enriched attributes and sets the
+// aggregate llm.ebpf.retrieval.kernel_attributed_ms attribute. This
+// enables operators to see what fraction of retrieval latency is
+// attributable to kernel-observable network operations.
+func DecomposeRetrieval(attrs map[string]float64) float64 {
+	var total float64
+	for _, key := range []string{
+		semconv.AttrDNSLatencyMS,
+		semconv.AttrConnectLatencyMS,
+		semconv.AttrTLSHandshakeMS,
+	} {
+		if v, ok := attrs[key]; ok {
+			total += v
+		}
+	}
+	if total > 0 {
+		attrs[semconv.AttrRetrievalKernelMS] = total
+	}
+	return total
 }
 
 func cloneMap(src map[string]float64) map[string]float64 {

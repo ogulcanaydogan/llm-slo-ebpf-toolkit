@@ -1,0 +1,46 @@
+name: dns_latency
+description: >
+  Simulates elevated DNS resolution latency affecting upstream vector DB
+  and API lookups. Models real-world scenarios where DNS infrastructure
+  degrades, causing cascading TTFT increases in RAG pipelines.
+
+fault_profile:
+  dns_latency_ms: 220
+  connect_latency_ms: 130
+  tcp_retransmits: 0.2
+  runqueue_delay_ms: 4
+  cpu_steal_pct: 0.6
+
+expected_impact:
+  ttft_breach: true
+  primary_signal: dns_latency_ms
+  secondary_signals:
+    - connect_latency_ms
+  error_rate_elevated: false
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: llm_slo_ttft_ms_p95
+    operator: ">"
+    value: 800
+    phase: fault
+  - metric: llm_slo_retrieval_dns_ms_p95
+    operator: ">"
+    value: 150
+    phase: fault
+  - metric: correlation_enrichment_rate
+    operator: ">="
+    value: 0.70
+    phase: fault

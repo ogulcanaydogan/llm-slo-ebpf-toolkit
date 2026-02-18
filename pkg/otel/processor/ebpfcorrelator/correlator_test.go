@@ -159,3 +159,46 @@ func TestEnrichAttributesThresholdAndDebug(t *testing.T) {
 		t.Fatalf("expected one unsupported signal, got %d", result.Debug.UnsupportedType)
 	}
 }
+
+func TestDecomposeRetrieval(t *testing.T) {
+	attrs := map[string]float64{
+		semconv.AttrDNSLatencyMS:     12.5,
+		semconv.AttrConnectLatencyMS: 18.0,
+		semconv.AttrTLSHandshakeMS:   22.0,
+		semconv.AttrCPUStealPct:      0.6,
+	}
+
+	total := DecomposeRetrieval(attrs)
+	expected := 12.5 + 18.0 + 22.0
+	if total != expected {
+		t.Fatalf("decompose total: got %f, want %f", total, expected)
+	}
+	if attrs[semconv.AttrRetrievalKernelMS] != expected {
+		t.Fatalf("kernel_attributed_ms: got %f, want %f", attrs[semconv.AttrRetrievalKernelMS], expected)
+	}
+}
+
+func TestDecomposeRetrievalPartial(t *testing.T) {
+	attrs := map[string]float64{
+		semconv.AttrDNSLatencyMS: 15.0,
+	}
+
+	total := DecomposeRetrieval(attrs)
+	if total != 15.0 {
+		t.Fatalf("partial decompose: got %f, want 15.0", total)
+	}
+}
+
+func TestDecomposeRetrievalEmpty(t *testing.T) {
+	attrs := map[string]float64{
+		semconv.AttrCPUStealPct: 2.0,
+	}
+
+	total := DecomposeRetrieval(attrs)
+	if total != 0 {
+		t.Fatalf("empty decompose: got %f, want 0", total)
+	}
+	if _, ok := attrs[semconv.AttrRetrievalKernelMS]; ok {
+		t.Fatal("should not set kernel_attributed_ms when total is 0")
+	}
+}

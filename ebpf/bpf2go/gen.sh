@@ -23,11 +23,20 @@ else
   exit 1
 fi
 
-cd "$ROOT_DIR/ebpf/bpf2go"
-go run github.com/cilium/ebpf/cmd/bpf2go@v0.16.0 \
-  -cc clang \
-  -cflags "-O2 -g -Wall -I../headers" \
-  Minimal \
-  ../c/minimal.bpf.c
+BPF2GO="go run github.com/cilium/ebpf/cmd/bpf2go@v0.16.0"
+CFLAGS="-O2 -g -Wall -I../headers -I../c"
 
-echo "generated CO-RE bindings in ebpf/bpf2go"
+cd "$ROOT_DIR/ebpf/bpf2go"
+
+# Minimal smoke probe (build test only)
+$BPF2GO -cc clang -cflags "$CFLAGS" Minimal ../c/minimal.bpf.c
+
+# Signal probes
+$BPF2GO -cc clang -cflags "$CFLAGS" DNSLatency ../c/dns_latency.bpf.c
+$BPF2GO -cc clang -cflags "$CFLAGS" TCPRetransmit ../c/tcp_retransmit.bpf.c
+$BPF2GO -cc clang -cflags "$CFLAGS" RunqueueDelay ../c/runqueue_delay.bpf.c
+$BPF2GO -cc clang -cflags "$CFLAGS" ConnectLatency ../c/connect_latency.bpf.c
+$BPF2GO -cc clang -cflags "$CFLAGS" TLSHandshake ../c/tls_handshake.bpf.c
+$BPF2GO -cc clang -cflags "$CFLAGS" CPUSteal ../c/cpu_steal.bpf.c
+
+echo "generated CO-RE bindings for 7 programs in ebpf/bpf2go"

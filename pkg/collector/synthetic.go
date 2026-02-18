@@ -20,7 +20,8 @@ var syntheticScenarioSequence = map[string][]string{
 	"dns_latency":       {"dns_latency"},
 	"cpu_throttle":      {"cpu_throttle"},
 	"memory_pressure":   {"memory_pressure"},
-	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle", "memory_pressure"},
+	"network_partition": {"network_partition"},
+	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle", "memory_pressure", "network_partition"},
 }
 
 // SupportedSyntheticScenarios returns accepted synthetic scenario names.
@@ -31,6 +32,7 @@ func SupportedSyntheticScenarios() []string {
 		"dns_latency",
 		"cpu_throttle",
 		"memory_pressure",
+		"network_partition",
 		"mixed",
 	}
 }
@@ -113,6 +115,11 @@ func buildScenarioSample(meta SampleMeta, timestamp time.Time, idx int, faultLab
 		sample.RequestLatencyMs = 1250
 		sample.TokenTPS = 13
 		sample.ErrorRate = 0.04
+	case "network_partition":
+		sample.TTFTMs = 1200
+		sample.RequestLatencyMs = 3500
+		sample.TokenTPS = 3
+		sample.ErrorRate = 0.25
 	}
 	return sample
 }

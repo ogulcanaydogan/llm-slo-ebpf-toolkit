@@ -259,6 +259,13 @@ func profileForFault(faultLabel string) signalProfile {
 		base.tlsHandshakeMS = 55
 		base.connectErrors = 1
 		base.connectErrno = 110
+	case "network_partition":
+		base.connectLatencyMS = 350
+		base.connectErrors = 3
+		base.connectErrno = 113
+		base.tcpRetransmits = 12
+		base.dnsLatencyMS = 180
+		base.tlsHandshakeFails = 2
 	}
 	return base
 }

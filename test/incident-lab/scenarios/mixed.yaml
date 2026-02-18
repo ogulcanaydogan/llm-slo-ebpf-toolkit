@@ -1,0 +1,46 @@
+name: mixed
+description: >
+  Composite scenario cycling through all five fault profiles in round-robin
+  sequence. Tests the toolkit's ability to correctly attribute incidents
+  when fault domains shift over time, validating the confusion matrix
+  and per-domain precision/recall.
+
+fault_sequence:
+  - provider_throttle
+  - dns_latency
+  - cpu_throttle
+  - memory_pressure
+  - network_partition
+
+expected_impact:
+  ttft_breach: true
+  primary_signal: varies
+  error_rate_elevated: true
+  multi_domain: true
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: attribution_precision
+    operator: ">="
+    value: 0.90
+    phase: fault
+  - metric: attribution_recall
+    operator: ">="
+    value: 0.85
+    phase: fault
+  - metric: incident_variance_pct
+    operator: "<="
+    value: 10
+    across: 3_reruns

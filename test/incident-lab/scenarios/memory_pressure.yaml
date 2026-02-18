@@ -1,0 +1,42 @@
+name: memory_pressure
+description: >
+  Simulates memory pressure causing page faults, swap activity, and OOM
+  kill risk. Models scenarios where container memory limits are approached,
+  causing CFS throttling and elevated run-queue delay from page reclaim.
+
+fault_profile:
+  runqueue_delay_ms: 14
+  cfs_throttled_ms: 90
+  dns_latency_ms: 12
+  connect_latency_ms: 18
+  cpu_steal_pct: 0.6
+
+expected_impact:
+  ttft_breach: false
+  primary_signal: cfs_throttled_ms
+  secondary_signals:
+    - runqueue_delay_ms
+  error_rate_elevated: true
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: cfs_throttled_ms_p95
+    operator: ">"
+    value: 60
+    phase: fault
+  - metric: runqueue_delay_ms_p95
+    operator: ">"
+    value: 10
+    phase: fault
