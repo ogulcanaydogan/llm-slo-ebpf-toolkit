@@ -19,16 +19,22 @@ import (
 
 // Config defines evaluation thresholds and IO roots for M5 GA gates.
 type Config struct {
-	CandidateRoot       string
-	BaselineRoot        string
-	Scenarios           []string
-	MaxOverheadPct      float64
-	MaxVariancePct      float64
-	MinRunsPerScenario  int
-	RegressionPctLimit  float64
-	SignificanceAlpha   float64
-	BootstrapIterations int
-	BootstrapSeed       int64
+	CandidateRoot            string
+	BaselineRoot             string
+	BaselineManifestPath     string
+	CandidateRef             string
+	CandidateCommit          string
+	RequireBaselineManifest  bool
+	Scenarios                []string
+	MaxOverheadPct           float64
+	MaxVariancePct           float64
+	MinRunsPerScenario       int
+	RegressionPctLimit       float64
+	SignificanceAlpha        float64
+	BootstrapIterations      int
+	BootstrapSeed            int64
+	MinSamplesPerScenario    int
+	MinCliffsDeltaForFailure float64
 }
 
 // Summary is the machine-readable output for M5 gate decisions.
@@ -37,6 +43,7 @@ type Summary struct {
 	CandidateRoot string           `json:"candidate_root"`
 	BaselineRoot  string           `json:"baseline_root"`
 	Scenarios     []string         `json:"scenarios"`
+	Baseline      BaselineGate     `json:"baseline"`
 	Overhead      OverheadGate     `json:"overhead"`
 	Variance      VarianceGate     `json:"variance"`
 	Significance  SignificanceGate `json:"significance"`
@@ -44,14 +51,31 @@ type Summary struct {
 	Failures      []string         `json:"failures,omitempty"`
 }
 
+// BaselineGate validates baseline provenance and independence.
+type BaselineGate struct {
+	Pass             bool   `json:"pass"`
+	ManifestRequired bool   `json:"manifest_required"`
+	ManifestPath     string `json:"manifest_path"`
+	SourceRef        string `json:"source_ref,omitempty"`
+	SourceCommit     string `json:"source_commit,omitempty"`
+	CandidateRef     string `json:"candidate_ref,omitempty"`
+	CandidateCommit  string `json:"candidate_commit,omitempty"`
+	SameSource       bool   `json:"same_source"`
+	FailureReason    string `json:"failure_reason,omitempty"`
+}
+
 // OverheadGate captures B5 verdict details.
 type OverheadGate struct {
-	Pass            bool    `json:"pass"`
-	ThresholdPct    float64 `json:"threshold_pct"`
-	MaxObservedPct  float64 `json:"max_observed_pct"`
-	MeanObservedPct float64 `json:"mean_observed_pct"`
-	SampleCount     int     `json:"sample_count"`
-	FilesChecked    int     `json:"files_checked"`
+	Pass            bool               `json:"pass"`
+	ThresholdPct    float64            `json:"threshold_pct"`
+	MaxObservedPct  float64            `json:"max_observed_pct"`
+	MeanObservedPct float64            `json:"mean_observed_pct"`
+	SampleCount     int                `json:"sample_count"`
+	FilesChecked    int                `json:"files_checked"`
+	NodeP95Observed map[string]float64 `json:"node_p95_observed"`
+	MaxNodeP95Pct   float64            `json:"max_node_p95_pct"`
+	MaxNodeP95Node  string             `json:"max_node_p95_node,omitempty"`
+	FailureReason   string             `json:"failure_reason,omitempty"`
 }
 
 // VarianceGate captures D3 verdict details.
@@ -64,39 +88,52 @@ type VarianceGate struct {
 
 // ScenarioVariance captures one scenario's rerun variance.
 type ScenarioVariance struct {
-	Scenario      string    `json:"scenario"`
-	RunCount      int       `json:"run_count"`
-	TTFTP95Values []float64 `json:"ttft_p95_values"`
-	MeanTTFTP95   float64   `json:"mean_ttft_p95"`
-	StdDevTTFTP95 float64   `json:"stddev_ttft_p95"`
-	VariancePct   float64   `json:"variance_pct"`
-	Pass          bool      `json:"pass"`
-	FailureReason string    `json:"failure_reason,omitempty"`
+	Scenario             string    `json:"scenario"`
+	RunCount             int       `json:"run_count"`
+	TTFTP95Values        []float64 `json:"ttft_p95_values"`
+	MeanTTFTP95          float64   `json:"mean_ttft_p95"`
+	StdDevTTFTP95        float64   `json:"stddev_ttft_p95"`
+	VariancePct          float64   `json:"variance_pct"`
+	TokensP50Values      []float64 `json:"tokens_p50_values"`
+	MeanTokensP50        float64   `json:"mean_tokens_p50"`
+	StdDevTokensP50      float64   `json:"stddev_tokens_p50"`
+	TokensVariancePct    float64   `json:"tokens_variance_pct"`
+	ErrorRateMeanValues  []float64 `json:"error_rate_mean_values"`
+	MeanErrorRateMean    float64   `json:"mean_error_rate_mean"`
+	StdDevErrorRateMean  float64   `json:"stddev_error_rate_mean"`
+	ErrorRateVariancePct float64   `json:"error_rate_variance_pct"`
+	Pass                 bool      `json:"pass"`
+	FailureReason        string    `json:"failure_reason,omitempty"`
 }
 
 // SignificanceGate captures E3 verdict details.
 type SignificanceGate struct {
-	Pass                bool                   `json:"pass"`
-	RegressionPctLimit  float64                `json:"regression_pct_limit"`
-	Alpha               float64                `json:"alpha"`
-	BootstrapIterations int                    `json:"bootstrap_iterations"`
-	Scenarios           []ScenarioSignificance `json:"scenarios"`
+	Pass                     bool                   `json:"pass"`
+	RegressionPctLimit       float64                `json:"regression_pct_limit"`
+	Alpha                    float64                `json:"alpha"`
+	BootstrapIterations      int                    `json:"bootstrap_iterations"`
+	MinSamplesPerScenario    int                    `json:"min_samples_per_scenario"`
+	MinCliffsDeltaForFailure float64                `json:"min_cliffs_delta_for_failure"`
+	Scenarios                []ScenarioSignificance `json:"scenarios"`
 }
 
 // ScenarioSignificance captures one scenario's statistical regression checks.
 type ScenarioSignificance struct {
-	Scenario           string     `json:"scenario"`
-	CandidateN         int        `json:"candidate_n"`
-	BaselineN          int        `json:"baseline_n"`
-	CandidateTTFTP95   float64    `json:"candidate_ttft_p95"`
-	BaselineTTFTP95    float64    `json:"baseline_ttft_p95"`
-	TTFTRegressionPct  float64    `json:"ttft_regression_pct"`
-	CandidateTokensP50 float64    `json:"candidate_tokens_p50"`
-	BaselineTokensP50  float64    `json:"baseline_tokens_p50"`
-	MannWhitneyPValue  float64    `json:"mann_whitney_p_value"`
-	BootstrapDeltaCI95 [2]float64 `json:"bootstrap_delta_ci95"`
-	Pass               bool       `json:"pass"`
-	FailureReason      string     `json:"failure_reason,omitempty"`
+	Scenario              string     `json:"scenario"`
+	CandidateN            int        `json:"candidate_n"`
+	BaselineN             int        `json:"baseline_n"`
+	CandidateTTFTP95      float64    `json:"candidate_ttft_p95"`
+	BaselineTTFTP95       float64    `json:"baseline_ttft_p95"`
+	TTFTRegressionPct     float64    `json:"ttft_regression_pct"`
+	CandidateTokensP50    float64    `json:"candidate_tokens_p50"`
+	BaselineTokensP50     float64    `json:"baseline_tokens_p50"`
+	MannWhitneyPValue     float64    `json:"mann_whitney_p_value"`
+	BootstrapDeltaCI95    [2]float64 `json:"bootstrap_delta_ci95"`
+	CliffsDelta           float64    `json:"cliffs_delta"`
+	PracticalEffectPass   bool       `json:"practical_effect_pass"`
+	MinimumSamplesReached bool       `json:"minimum_samples_reached"`
+	Pass                  bool       `json:"pass"`
+	FailureReason         string     `json:"failure_reason,omitempty"`
 }
 
 // Evaluate executes B5, D3, and E3 gates together.
@@ -109,6 +146,10 @@ func Evaluate(cfg Config) (Summary, error) {
 		Scenarios:     append([]string(nil), cfg.Scenarios...),
 	}
 
+	baseline, err := evaluateBaseline(cfg)
+	if err != nil {
+		return Summary{}, err
+	}
 	overhead, err := evaluateOverhead(cfg)
 	if err != nil {
 		return Summary{}, err
@@ -122,13 +163,26 @@ func Evaluate(cfg Config) (Summary, error) {
 		return Summary{}, err
 	}
 
+	summary.Baseline = baseline
 	summary.Overhead = overhead
 	summary.Variance = variance
 	summary.Significance = significance
-	summary.Pass = overhead.Pass && variance.Pass && significance.Pass
+	summary.Pass = baseline.Pass && overhead.Pass && variance.Pass && significance.Pass
+
+	if !baseline.Pass {
+		reason := baseline.FailureReason
+		if reason == "" {
+			reason = "baseline provenance validation failed"
+		}
+		summary.Failures = append(summary.Failures, "baseline gate failed: "+reason)
+	}
 
 	if !overhead.Pass {
-		summary.Failures = append(summary.Failures, fmt.Sprintf("B5 overhead gate failed: max %.4f > %.4f", overhead.MaxObservedPct, overhead.ThresholdPct))
+		reason := overhead.FailureReason
+		if reason == "" {
+			reason = fmt.Sprintf("node p95 %.4f on %s exceeded %.4f", overhead.MaxNodeP95Pct, overhead.MaxNodeP95Node, overhead.ThresholdPct)
+		}
+		summary.Failures = append(summary.Failures, "B5 overhead gate failed: "+reason)
 	}
 	if !variance.Pass {
 		summary.Failures = append(summary.Failures, "D3 rerun variance gate failed")
@@ -146,6 +200,9 @@ func normalizeConfig(cfg Config) Config {
 	}
 	if cfg.BaselineRoot == "" {
 		cfg.BaselineRoot = filepath.Join(cfg.CandidateRoot, "baseline")
+	}
+	if cfg.BaselineManifestPath == "" {
+		cfg.BaselineManifestPath = filepath.Join(cfg.BaselineRoot, "manifest.json")
 	}
 	if len(cfg.Scenarios) == 0 {
 		cfg.Scenarios = []string{"dns_latency", "cpu_throttle", "provider_throttle", "memory_pressure", "network_partition", "mixed"}
@@ -171,12 +228,82 @@ func normalizeConfig(cfg Config) Config {
 	if cfg.BootstrapSeed == 0 {
 		cfg.BootstrapSeed = 42
 	}
+	if cfg.MinSamplesPerScenario <= 0 {
+		cfg.MinSamplesPerScenario = 30
+	}
+	if cfg.MinCliffsDeltaForFailure <= 0 {
+		cfg.MinCliffsDeltaForFailure = 0.147
+	}
 	return cfg
 }
 
+type baselineManifest struct {
+	SourceRef    string `json:"source_ref"`
+	SourceCommit string `json:"source_commit"`
+	GeneratedAt  string `json:"generated_at,omitempty"`
+}
+
+func evaluateBaseline(cfg Config) (BaselineGate, error) {
+	result := BaselineGate{
+		Pass:             true,
+		ManifestRequired: cfg.RequireBaselineManifest,
+		ManifestPath:     cfg.BaselineManifestPath,
+		CandidateRef:     cfg.CandidateRef,
+		CandidateCommit:  cfg.CandidateCommit,
+	}
+
+	manifestPath := cfg.BaselineManifestPath
+	manifestExists := false
+	if _, err := os.Stat(manifestPath); err == nil {
+		manifestExists = true
+	} else if !os.IsNotExist(err) {
+		return result, fmt.Errorf("stat baseline manifest %s: %w", manifestPath, err)
+	}
+
+	if cfg.RequireBaselineManifest && !manifestExists {
+		result.Pass = false
+		result.FailureReason = fmt.Sprintf("required baseline manifest missing: %s", manifestPath)
+		return result, nil
+	}
+	if !manifestExists {
+		return result, nil
+	}
+
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return result, fmt.Errorf("read baseline manifest %s: %w", manifestPath, err)
+	}
+	var manifest baselineManifest
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		return result, fmt.Errorf("parse baseline manifest %s: %w", manifestPath, err)
+	}
+
+	result.SourceRef = strings.TrimSpace(manifest.SourceRef)
+	result.SourceCommit = strings.TrimSpace(manifest.SourceCommit)
+
+	sameCommit := result.SourceCommit != "" && result.CandidateCommit != "" && result.SourceCommit == result.CandidateCommit
+	sameRef := result.SourceRef != "" && result.CandidateRef != "" && result.SourceRef == result.CandidateRef
+	result.SameSource = sameCommit || sameRef
+	if result.SameSource {
+		result.Pass = false
+		if sameCommit {
+			result.FailureReason = fmt.Sprintf("baseline source_commit matches candidate commit (%s)", result.SourceCommit)
+		} else {
+			result.FailureReason = fmt.Sprintf("baseline source_ref matches candidate ref (%s)", result.SourceRef)
+		}
+	}
+
+	return result, nil
+}
+
 func evaluateOverhead(cfg Config) (OverheadGate, error) {
-	result := OverheadGate{ThresholdPct: cfg.MaxOverheadPct, Pass: true}
+	result := OverheadGate{
+		ThresholdPct:    cfg.MaxOverheadPct,
+		Pass:            true,
+		NodeP95Observed: map[string]float64{},
+	}
 	var values []float64
+	valuesByNode := map[string][]float64{}
 	files := 0
 
 	for _, scenario := range cfg.Scenarios {
@@ -190,12 +317,15 @@ func evaluateOverhead(cfg Config) (OverheadGate, error) {
 
 		for _, runDir := range runs {
 			overheadPath := filepath.Join(runDir, "collector_overhead.csv")
-			cpuValues, err := loadCollectorCPUValues(overheadPath)
+			samples, err := loadCollectorCPUSamples(overheadPath)
 			if err != nil {
 				return result, err
 			}
 			files++
-			values = append(values, cpuValues...)
+			for _, sample := range samples {
+				values = append(values, sample.CPU)
+				valuesByNode[sample.Node] = append(valuesByNode[sample.Node], sample.CPU)
+			}
 		}
 	}
 
@@ -207,7 +337,37 @@ func evaluateOverhead(cfg Config) (OverheadGate, error) {
 	result.SampleCount = len(values)
 	result.MaxObservedPct = maxFloat(values)
 	result.MeanObservedPct = mean(values)
-	result.Pass = result.MaxObservedPct <= result.ThresholdPct
+
+	maxNode := ""
+	maxNodeP95 := 0.0
+	for node, nodeValues := range valuesByNode {
+		p95 := quantile(nodeValues, 0.95)
+		result.NodeP95Observed[node] = p95
+		if maxNode == "" || p95 > maxNodeP95 {
+			maxNode = node
+			maxNodeP95 = p95
+		}
+	}
+	result.MaxNodeP95Node = maxNode
+	result.MaxNodeP95Pct = maxNodeP95
+	result.Pass = result.MaxNodeP95Pct <= result.ThresholdPct && result.MeanObservedPct <= result.ThresholdPct
+	if !result.Pass {
+		switch {
+		case result.MaxNodeP95Pct > result.ThresholdPct:
+			result.FailureReason = fmt.Sprintf(
+				"node %s p95 overhead %.4f exceeds %.4f",
+				result.MaxNodeP95Node,
+				result.MaxNodeP95Pct,
+				result.ThresholdPct,
+			)
+		case result.MeanObservedPct > result.ThresholdPct:
+			result.FailureReason = fmt.Sprintf(
+				"mean overhead %.4f exceeds %.4f",
+				result.MeanObservedPct,
+				result.ThresholdPct,
+			)
+		}
+	}
 	return result, nil
 }
 
@@ -235,6 +395,8 @@ func evaluateVariance(cfg Config) (VarianceGate, error) {
 		}
 
 		ttftP95 := make([]float64, 0, len(runs))
+		tokensP50 := make([]float64, 0, len(runs))
+		errorRateMean := make([]float64, 0, len(runs))
 		for _, runDir := range runs {
 			rawPath := filepath.Join(runDir, "raw_samples.jsonl")
 			raw, err := loadRawSamples(rawPath)
@@ -242,21 +404,50 @@ func evaluateVariance(cfg Config) (VarianceGate, error) {
 				return result, err
 			}
 			ttft := extractTTFT(raw)
+			tokens := extractTokens(raw)
+			errors := extractErrorRates(raw)
 			if len(ttft) == 0 {
 				return result, fmt.Errorf("no ttft values found in %s", rawPath)
 			}
+			if len(tokens) == 0 {
+				return result, fmt.Errorf("no token throughput values found in %s", rawPath)
+			}
+			if len(errors) == 0 {
+				return result, fmt.Errorf("no error_rate values found in %s", rawPath)
+			}
 			ttftP95 = append(ttftP95, quantile(ttft, 0.95))
+			tokensP50 = append(tokensP50, quantile(tokens, 0.50))
+			errorRateMean = append(errorRateMean, mean(errors))
 		}
 
 		scenarioResult.TTFTP95Values = ttftP95
 		scenarioResult.MeanTTFTP95 = mean(ttftP95)
 		scenarioResult.StdDevTTFTP95 = stddev(ttftP95)
-		if scenarioResult.MeanTTFTP95 > 0 {
-			scenarioResult.VariancePct = (scenarioResult.StdDevTTFTP95 / scenarioResult.MeanTTFTP95) * 100
-		}
-		scenarioResult.Pass = scenarioResult.VariancePct <= cfg.MaxVariancePct
+		scenarioResult.VariancePct = coefficientOfVariancePct(ttftP95)
+		scenarioResult.TokensP50Values = tokensP50
+		scenarioResult.MeanTokensP50 = mean(tokensP50)
+		scenarioResult.StdDevTokensP50 = stddev(tokensP50)
+		scenarioResult.TokensVariancePct = coefficientOfVariancePct(tokensP50)
+		scenarioResult.ErrorRateMeanValues = errorRateMean
+		scenarioResult.MeanErrorRateMean = mean(errorRateMean)
+		scenarioResult.StdDevErrorRateMean = stddev(errorRateMean)
+		scenarioResult.ErrorRateVariancePct = coefficientOfVariancePct(errorRateMean)
+
+		scenarioResult.Pass = scenarioResult.VariancePct <= cfg.MaxVariancePct &&
+			scenarioResult.TokensVariancePct <= cfg.MaxVariancePct &&
+			scenarioResult.ErrorRateVariancePct <= cfg.MaxVariancePct
 		if !scenarioResult.Pass {
-			scenarioResult.FailureReason = fmt.Sprintf("variance %.4f%% exceeds %.4f%%", scenarioResult.VariancePct, cfg.MaxVariancePct)
+			failureParts := make([]string, 0, 3)
+			if scenarioResult.VariancePct > cfg.MaxVariancePct {
+				failureParts = append(failureParts, fmt.Sprintf("ttft variance %.4f%% exceeds %.4f%%", scenarioResult.VariancePct, cfg.MaxVariancePct))
+			}
+			if scenarioResult.TokensVariancePct > cfg.MaxVariancePct {
+				failureParts = append(failureParts, fmt.Sprintf("tokens variance %.4f%% exceeds %.4f%%", scenarioResult.TokensVariancePct, cfg.MaxVariancePct))
+			}
+			if scenarioResult.ErrorRateVariancePct > cfg.MaxVariancePct {
+				failureParts = append(failureParts, fmt.Sprintf("error-rate variance %.4f%% exceeds %.4f%%", scenarioResult.ErrorRateVariancePct, cfg.MaxVariancePct))
+			}
+			scenarioResult.FailureReason = strings.Join(failureParts, "; ")
 			result.Pass = false
 		}
 
@@ -268,11 +459,13 @@ func evaluateVariance(cfg Config) (VarianceGate, error) {
 
 func evaluateSignificance(cfg Config) (SignificanceGate, error) {
 	result := SignificanceGate{
-		Pass:                true,
-		RegressionPctLimit:  cfg.RegressionPctLimit,
-		Alpha:               cfg.SignificanceAlpha,
-		BootstrapIterations: cfg.BootstrapIterations,
-		Scenarios:           make([]ScenarioSignificance, 0, len(cfg.Scenarios)),
+		Pass:                     true,
+		RegressionPctLimit:       cfg.RegressionPctLimit,
+		Alpha:                    cfg.SignificanceAlpha,
+		BootstrapIterations:      cfg.BootstrapIterations,
+		MinSamplesPerScenario:    cfg.MinSamplesPerScenario,
+		MinCliffsDeltaForFailure: cfg.MinCliffsDeltaForFailure,
+		Scenarios:                make([]ScenarioSignificance, 0, len(cfg.Scenarios)),
 	}
 
 	rng := rand.New(rand.NewSource(cfg.BootstrapSeed))
@@ -321,30 +514,61 @@ func evaluateSignificance(cfg Config) (SignificanceGate, error) {
 
 		pValue := mannWhitneyPValue(candidateTTFT, baselineTTFT)
 		ciLow, ciHigh := bootstrapDeltaCI(candidateTTFT, baselineTTFT, 0.95, cfg.BootstrapIterations, rng)
+		cliffs := cliffsDelta(candidateTTFT, baselineTTFT)
+		minSamplesReached := len(candidateTTFT) >= cfg.MinSamplesPerScenario && len(baselineTTFT) >= cfg.MinSamplesPerScenario
 
 		scenarioResult := ScenarioSignificance{
-			Scenario:           scenario,
-			CandidateN:         len(candidateTTFT),
-			BaselineN:          len(baselineTTFT),
-			CandidateTTFTP95:   candidateP95,
-			BaselineTTFTP95:    baselineP95,
-			TTFTRegressionPct:  regressionPct,
-			CandidateTokensP50: quantile(candidateTPS, 0.50),
-			BaselineTokensP50:  quantile(baselineTPS, 0.50),
-			MannWhitneyPValue:  pValue,
-			BootstrapDeltaCI95: [2]float64{ciLow, ciHigh},
-			Pass:               true,
+			Scenario:              scenario,
+			CandidateN:            len(candidateTTFT),
+			BaselineN:             len(baselineTTFT),
+			CandidateTTFTP95:      candidateP95,
+			BaselineTTFTP95:       baselineP95,
+			TTFTRegressionPct:     regressionPct,
+			CandidateTokensP50:    quantile(candidateTPS, 0.50),
+			BaselineTokensP50:     quantile(baselineTPS, 0.50),
+			MannWhitneyPValue:     pValue,
+			BootstrapDeltaCI95:    [2]float64{ciLow, ciHigh},
+			CliffsDelta:           cliffs,
+			PracticalEffectPass:   math.Abs(cliffs) >= cfg.MinCliffsDeltaForFailure,
+			MinimumSamplesReached: minSamplesReached,
+			Pass:                  true,
 		}
 
-		if regressionPct > cfg.RegressionPctLimit && pValue < cfg.SignificanceAlpha && ciLow > 0 {
+		if !minSamplesReached {
 			scenarioResult.Pass = false
 			scenarioResult.FailureReason = fmt.Sprintf(
-				"ttft regression %.4f%% exceeds %.4f%% with p=%.6f and CI95[%.4f, %.4f]",
+				"insufficient samples: candidate=%d baseline=%d requires >=%d",
+				len(candidateTTFT),
+				len(baselineTTFT),
+				cfg.MinSamplesPerScenario,
+			)
+			result.Pass = false
+			result.Scenarios = append(result.Scenarios, scenarioResult)
+			continue
+		}
+
+		isRegression := regressionPct > cfg.RegressionPctLimit && pValue < cfg.SignificanceAlpha && ciLow > 0
+		if isRegression && !scenarioResult.PracticalEffectPass {
+			scenarioResult.FailureReason = fmt.Sprintf(
+				"statistical regression detected (%.4f%%, p=%.6f, CI95[%.4f, %.4f]) but |Cliff's delta| %.4f < %.4f practical threshold",
+				regressionPct,
+				pValue,
+				ciLow,
+				ciHigh,
+				math.Abs(cliffs),
+				cfg.MinCliffsDeltaForFailure,
+			)
+		}
+		if isRegression && scenarioResult.PracticalEffectPass {
+			scenarioResult.Pass = false
+			scenarioResult.FailureReason = fmt.Sprintf(
+				"ttft regression %.4f%% exceeds %.4f%% with p=%.6f CI95[%.4f, %.4f] and Cliff's delta %.4f",
 				regressionPct,
 				cfg.RegressionPctLimit,
 				pValue,
 				ciLow,
 				ciHigh,
+				cliffs,
 			)
 			result.Pass = false
 		}
@@ -381,7 +605,12 @@ func discoverRuns(scenarioRoot string) ([]string, error) {
 	return nil, nil
 }
 
-func loadCollectorCPUValues(path string) ([]float64, error) {
+type collectorCPUSample struct {
+	Node string
+	CPU  float64
+}
+
+func loadCollectorCPUSamples(path string) ([]collectorCPUSample, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open overhead file %s: %w", path, err)
@@ -402,8 +631,9 @@ func loadCollectorCPUValues(path string) ([]float64, error) {
 	if cpuIdx < 0 {
 		return nil, fmt.Errorf("collector_cpu_pct column missing in %s", path)
 	}
+	nodeIdx := indexOf(header, "node")
 
-	out := make([]float64, 0, len(records)-1)
+	out := make([]collectorCPUSample, 0, len(records)-1)
 	for _, row := range records[1:] {
 		if cpuIdx >= len(row) {
 			continue
@@ -412,7 +642,14 @@ func loadCollectorCPUValues(path string) ([]float64, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse collector_cpu_pct in %s: %w", path, err)
 		}
-		out = append(out, value)
+		node := "unknown"
+		if nodeIdx >= 0 && nodeIdx < len(row) {
+			node = strings.TrimSpace(row[nodeIdx])
+			if node == "" {
+				node = "unknown"
+			}
+		}
+		out = append(out, collectorCPUSample{Node: node, CPU: value})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no collector_cpu_pct values in %s", path)
@@ -478,6 +715,14 @@ func extractTokens(samples []collector.RawSample) []float64 {
 	return out
 }
 
+func extractErrorRates(samples []collector.RawSample) []float64 {
+	out := make([]float64, 0, len(samples))
+	for _, sample := range samples {
+		out = append(out, sample.ErrorRate)
+	}
+	return out
+}
+
 func quantile(values []float64, q float64) float64 {
 	if len(values) == 0 {
 		return 0
@@ -525,6 +770,14 @@ func stddev(values []float64) float64 {
 		acc += delta * delta
 	}
 	return math.Sqrt(acc / float64(len(values)-1))
+}
+
+func coefficientOfVariancePct(values []float64) float64 {
+	m := mean(values)
+	if m == 0 {
+		return 0
+	}
+	return (stddev(values) / m) * 100
 }
 
 func maxFloat(values []float64) float64 {
@@ -624,6 +877,26 @@ func mannWhitneyPValue(x []float64, y []float64) float64 {
 		return 1
 	}
 	return p
+}
+
+func cliffsDelta(x []float64, y []float64) float64 {
+	if len(x) == 0 || len(y) == 0 {
+		return 0
+	}
+	greater := 0
+	lower := 0
+	for _, xv := range x {
+		for _, yv := range y {
+			switch {
+			case xv > yv:
+				greater++
+			case xv < yv:
+				lower++
+			}
+		}
+	}
+	total := float64(len(x) * len(y))
+	return (float64(greater) - float64(lower)) / total
 }
 
 func normalCDF(z float64) float64 {

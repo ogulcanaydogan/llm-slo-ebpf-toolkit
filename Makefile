@@ -30,6 +30,23 @@ SCHEMA_FILES := \
 	docs/contracts/v1alpha1/probe-event.schema.json \
 	config/toolkit.schema.json
 
+M5_CANDIDATE_ROOT ?= artifacts/weekly-benchmark
+M5_BASELINE_ROOT ?= artifacts/weekly-benchmark/baseline
+M5_BASELINE_MANIFEST ?= artifacts/weekly-benchmark/baseline/manifest.json
+M5_CANDIDATE_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
+M5_CANDIDATE_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo local)
+M5_REQUIRE_BASELINE_MANIFEST ?= false
+M5_MAX_OVERHEAD_PCT ?= 3
+M5_MAX_VARIANCE_PCT ?= 10
+M5_MIN_RUNS ?= 3
+M5_TTFT_REGRESSION_PCT ?= 5
+M5_ALPHA ?= 0.05
+M5_BOOTSTRAP_ITERS ?= 1000
+M5_MIN_SAMPLES ?= 30
+M5_MIN_CLIFFS_DELTA ?= 0.147
+M5_OUT_JSON ?= artifacts/weekly-benchmark/m5_gate_summary.json
+M5_OUT_MD ?= artifacts/weekly-benchmark/m5_gate_summary.md
+
 build:
 	go build ./...
 
@@ -120,14 +137,20 @@ correlation-gate:
 
 m5-gate:
 	go run ./cmd/m5gate \
-		--candidate-root artifacts/weekly-benchmark \
-		--baseline-root artifacts/weekly-benchmark/baseline \
+		--candidate-root $(M5_CANDIDATE_ROOT) \
+		--baseline-root $(M5_BASELINE_ROOT) \
+		--baseline-manifest $(M5_BASELINE_MANIFEST) \
+		--candidate-ref $(M5_CANDIDATE_REF) \
+		--candidate-commit $(M5_CANDIDATE_COMMIT) \
+		--require-baseline-manifest=$(M5_REQUIRE_BASELINE_MANIFEST) \
 		--scenarios dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed \
-		--max-overhead-pct 3 \
-		--max-variance-pct 10 \
-		--min-runs 3 \
-		--ttft-regression-pct 5 \
-		--alpha 0.05 \
-		--bootstrap-iters 1000 \
-		--out-json artifacts/weekly-benchmark/m5_gate_summary.json \
-		--out-md artifacts/weekly-benchmark/m5_gate_summary.md
+		--max-overhead-pct $(M5_MAX_OVERHEAD_PCT) \
+		--max-variance-pct $(M5_MAX_VARIANCE_PCT) \
+		--min-runs $(M5_MIN_RUNS) \
+		--ttft-regression-pct $(M5_TTFT_REGRESSION_PCT) \
+		--alpha $(M5_ALPHA) \
+		--bootstrap-iters $(M5_BOOTSTRAP_ITERS) \
+		--min-samples $(M5_MIN_SAMPLES) \
+		--min-cliffs-delta $(M5_MIN_CLIFFS_DELTA) \
+		--out-json $(M5_OUT_JSON) \
+		--out-md $(M5_OUT_MD)

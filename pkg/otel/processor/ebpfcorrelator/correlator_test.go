@@ -202,3 +202,123 @@ func TestDecomposeRetrievalEmpty(t *testing.T) {
 		t.Fatal("should not set kernel_attributed_ms when total is 0")
 	}
 }
+
+func TestProcessBatchEnrichesSpans(t *testing.T) {
+	c := New()
+	now := time.Now().UTC()
+
+	batch := []SpanRecord{
+		{
+			TraceID:   "trace-1",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       1001,
+			Timestamp: now,
+		},
+		{
+			TraceID:   "trace-2",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       1002,
+			Timestamp: now,
+		},
+	}
+	signals := []correlation.SignalRef{
+		{
+			Signal:    "dns_latency_ms",
+			TraceID:   "trace-1",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       1001,
+			Timestamp: now.Add(10 * time.Millisecond),
+			Value:     88,
+		},
+		{
+			Signal:    "unknown_signal",
+			TraceID:   "trace-1",
+			Timestamp: now,
+			Value:     1,
+		},
+	}
+
+	out := c.ProcessBatch(batch, signals)
+	if len(out.Spans) != 2 {
+		t.Fatalf("expected 2 spans, got %d", len(out.Spans))
+	}
+	if got := out.Spans[0].Attributes[semconv.AttrDNSLatencyMS]; got != 88 {
+		t.Fatalf("expected dns attr on first span, got %f", got)
+	}
+	if got := out.Spans[0].Attributes[semconv.AttrRetrievalKernelMS]; got != 88 {
+		t.Fatalf("expected retrieval decomposition on first span, got %f", got)
+	}
+	if _, ok := out.Spans[1].Attributes[semconv.AttrDNSLatencyMS]; ok {
+		t.Fatal("did not expect dns attr on unmatched span")
+	}
+	if out.Debug.UnsupportedType == 0 {
+		t.Fatal("expected unsupported signal count in debug stats")
+	}
+}
+
+func TestProcessBatchAggregatesFanoutDrops(t *testing.T) {
+	c := New()
+	now := time.Now().UTC()
+	span := SpanRecord{
+		TraceID:   "trace-9",
+		Service:   "rag",
+		Node:      "node-a",
+		Pod:       "pod-a",
+		PID:       222,
+		Timestamp: now,
+	}
+
+	signals := []correlation.SignalRef{
+		{
+			Signal:    "dns_latency_ms",
+			TraceID:   "trace-9",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       222,
+			Timestamp: now.Add(5 * time.Millisecond),
+			Value:     10,
+		},
+		{
+			Signal:    "connect_latency_ms",
+			TraceID:   "trace-9",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       222,
+			Timestamp: now.Add(6 * time.Millisecond),
+			Value:     11,
+		},
+		{
+			Signal:    "tls_handshake_ms",
+			TraceID:   "trace-9",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       222,
+			Timestamp: now.Add(7 * time.Millisecond),
+			Value:     12,
+		},
+		{
+			Signal:    "runqueue_delay_ms",
+			TraceID:   "trace-9",
+			Service:   "rag",
+			Node:      "node-a",
+			Pod:       "pod-a",
+			PID:       222,
+			Timestamp: now.Add(8 * time.Millisecond),
+			Value:     13,
+		},
+	}
+
+	out := c.ProcessBatch([]SpanRecord{span}, signals)
+	if out.Debug.FanoutDropped != 1 {
+		t.Fatalf("expected one fanout drop, got %d", out.Debug.FanoutDropped)
+	}
+}

@@ -66,9 +66,13 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/weekly-benchmark/baseline
           SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          BASELINE_SOURCE_REF=""
+          BASELINE_SOURCE_COMMIT=""
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
           if [[ -n "$PREV_TAG" ]]; then
             echo "Using previous tag baseline: $PREV_TAG"
+            BASELINE_SOURCE_REF="$PREV_TAG"
+            BASELINE_SOURCE_COMMIT="$(git rev-list -n 1 "$PREV_TAG")"
             WORKTREE_DIR="$(mktemp -d)"
             cleanup() {
               git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || true
@@ -89,14 +93,29 @@ jobs:
             trap - EXIT
           else
             echo "No previous tag found; using current run-1 as GA anchor baseline"
+            BASELINE_SOURCE_REF="${GITHUB_REF_NAME:-main}"
+            BASELINE_SOURCE_COMMIT="${GITHUB_SHA}"
             for SCENARIO in "${SCENARIOS[@]}"; do
               OUT_DIR="artifacts/weekly-benchmark/baseline/${SCENARIO}"
               mkdir -p "$OUT_DIR"
               cp "artifacts/weekly-benchmark/${SCENARIO}/run-1/raw_samples.jsonl" "$OUT_DIR/raw_samples.jsonl"
             done
           fi
+          cat > artifacts/weekly-benchmark/baseline/manifest.json <<EOF
+          {
+            "source_ref": "${BASELINE_SOURCE_REF}",
+            "source_commit": "${BASELINE_SOURCE_COMMIT}",
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
 
       - name: Run M5 GA gates (B5, D3, E3)
+        env:
+          M5_REQUIRE_BASELINE_MANIFEST: "true"
+          M5_CANDIDATE_REF: ${{ github.ref_name }}
+          M5_CANDIDATE_COMMIT: ${{ github.sha }}
+          M5_MIN_SAMPLES: "30"
+          M5_MIN_CLIFFS_DELTA: "0.147"
         run: make m5-gate
 
       - name: Upload weekly artifacts
