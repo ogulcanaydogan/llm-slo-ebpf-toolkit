@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-slo-ebpf-toolkit.dev/config/v1alpha1/toolkit.schema.json",
+  "title": "ToolkitConfigV1Alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "signal_set",
+    "sampling",
+    "correlation",
+    "otlp",
+    "safety"
+  ],
+  "properties": {
+    "signal_set": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "dns_latency_ms",
+          "tcp_retransmits_total",
+          "runqueue_delay_ms",
+          "connect_latency_ms",
+          "tls_handshake_ms",
+          "cpu_steal_pct"
+        ]
+      },
+      "default": [
+        "dns_latency_ms",
+        "tcp_retransmits_total",
+        "runqueue_delay_ms",
+        "connect_latency_ms",
+        "tls_handshake_ms",
+        "cpu_steal_pct"
+      ]
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "events_per_second_limit",
+        "burst_limit"
+      ],
+      "properties": {
+        "events_per_second_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10000
+        },
+        "burst_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20000
+        }
+      }
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_ms"
+      ],
+      "properties": {
+        "window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2000
+        }
+      }
+    },
+    "otlp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "endpoint"
+      ],
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "default": "http://otel-collector:4317"
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_overhead_pct"
+      ],
+      "properties": {
+        "max_overhead_pct": {
+          "type": "number",
+          "minimum": 0,
+          "default": 5
+        }
+      }
+    }
+  }
+}

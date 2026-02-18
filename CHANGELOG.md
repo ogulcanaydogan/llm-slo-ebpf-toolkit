@@ -3,8 +3,11 @@
 ## v0.1.0-alpha.4 - 2026-02-18
 - Added Kubernetes deployment skeleton for collector DaemonSet under `deploy/k8s`.
 - Added `cmd/faultreplay` and `pkg/faultreplay` for multi-domain synthetic replay streams (`provider_throttle`, `dns_latency`, `cpu_throttle`, `mixed`).
+- Added collector runtime flags for input/output mode, synthetic scenario generation, and stream mode (`--count=0`).
+- Added `cmd/faultinject` harness to generate raw collector input streams for controlled fault scenarios.
+- Added synthetic sample metadata enrichment (`node`, `fault_label`) in emitted SLO events.
 - Extended benchmark harness to emit `report.md` as part of each artifact bundle.
-- Added CI smoke path for replay generation + benchmark bundle creation.
+- Added CI smoke path for fault injection -> collector normalization and replay -> benchmark bundle creation.
 
 ## v0.1.0-alpha.3 - 2026-02-17
 - Added mixed-fault benchmark scenario (`mixed_faults`) combining `provider_throttle` and `dns_latency` labels.

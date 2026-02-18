@@ -12,12 +12,14 @@ func TestNormalizeSampleProducesEvents(t *testing.T) {
 		Namespace:        "default",
 		Workload:         "demo",
 		Service:          "chat",
+		Node:             "kind-control-plane",
 		RequestID:        "req-1",
 		TraceID:          "trace-1",
 		TTFTMs:           300,
 		RequestLatencyMs: 900,
 		TokenTPS:         20,
 		ErrorRate:        0.01,
+		FaultLabel:       "provider_throttle",
 	}
 
 	events := NormalizeSample(sample)
@@ -29,6 +31,12 @@ func TestNormalizeSampleProducesEvents(t *testing.T) {
 	}
 	if events[1].Status != "warning" {
 		t.Fatalf("expected warning status, got %s", events[1].Status)
+	}
+	if events[0].Labels["node"] != "kind-control-plane" {
+		t.Fatalf("expected node label")
+	}
+	if events[0].Labels["fault_label"] != "provider_throttle" {
+		t.Fatalf("expected fault label")
 	}
 }
 

@@ -14,12 +14,14 @@ type RawSample struct {
 	Namespace        string    `json:"namespace"`
 	Workload         string    `json:"workload"`
 	Service          string    `json:"service"`
+	Node             string    `json:"node,omitempty"`
 	RequestID        string    `json:"request_id"`
 	TraceID          string    `json:"trace_id"`
 	TTFTMs           float64   `json:"ttft_ms"`
 	RequestLatencyMs float64   `json:"request_latency_ms"`
 	TokenTPS         float64   `json:"token_throughput_tps"`
 	ErrorRate        float64   `json:"error_rate"`
+	FaultLabel       string    `json:"fault_label,omitempty"`
 }
 
 // NormalizeSample converts one raw sample into first-class SLO events.
@@ -34,6 +36,16 @@ func NormalizeSample(sample RawSample) []schema.SLOEvent {
 }
 
 func buildEvent(sample RawSample, sli string, value float64, unit string, status string) schema.SLOEvent {
+	labels := map[string]string{
+		"source": "synthetic",
+	}
+	if sample.Node != "" {
+		labels["node"] = sample.Node
+	}
+	if sample.FaultLabel != "" {
+		labels["fault_label"] = sample.FaultLabel
+	}
+
 	return schema.SLOEvent{
 		EventID:   fmt.Sprintf("%s-%s", sample.RequestID, sli),
 		Timestamp: sample.Timestamp,
@@ -47,9 +59,7 @@ func buildEvent(sample RawSample, sli string, value float64, unit string, status
 		SLIValue:  value,
 		Unit:      unit,
 		Status:    status,
-		Labels: map[string]string{
-			"source": "synthetic",
-		},
+		Labels:    labels,
 	}
 }
 

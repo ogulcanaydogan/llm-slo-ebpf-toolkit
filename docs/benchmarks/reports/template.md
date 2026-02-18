@@ -14,6 +14,8 @@
 - Fault Injection Matrix Covered:
 - Sample Size:
 - Confidence Level:
+- Baseline rule used (previous stable or first GA anchor fallback):
+- Run class (`gating` when >=10 repetitions/profile, else `exploratory`):
 
 ## Key Results
 - Detection delay median (with CI95):
@@ -23,6 +25,7 @@
 - Abstain rate:
 - Burn-rate prediction error:
 - Collector overhead (CPU/memory/events/drops):
+- Capability mode (`core_full` or `bcc_degraded`):
 
 ## Failure and Drift Checks
 - Artifact completeness check:

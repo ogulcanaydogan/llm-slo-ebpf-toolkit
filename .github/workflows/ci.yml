@@ -15,6 +15,10 @@ jobs:
           go-version: "1.23"
       - name: Go test
         run: go test ./...
+      - name: Collector fault-injection smoke
+        run: |
+          go run ./cmd/faultinject --scenario mixed --count 16 --out /tmp/faultinject_raw.jsonl
+          go run ./cmd/collector --input /tmp/faultinject_raw.jsonl --output jsonl --output-path /tmp/slo_events.jsonl
       - name: Fault replay smoke
         run: |
           go run ./cmd/faultreplay --scenario mixed --count 24 --out /tmp/fault_samples.jsonl

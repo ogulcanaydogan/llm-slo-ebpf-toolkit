@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-slo-ebpf-toolkit.dev/contracts/v1alpha1/probe-event.schema.json",
+  "title": "ProbeEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts_unix_nano",
+    "signal",
+    "node",
+    "namespace",
+    "pod",
+    "container",
+    "pid",
+    "tid",
+    "value",
+    "unit",
+    "status"
+  ],
+  "properties": {
+    "ts_unix_nano": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "signal": {
+      "type": "string"
+    },
+    "node": {
+      "type": "string"
+    },
+    "namespace": {
+      "type": "string"
+    },
+    "pod": {
+      "type": "string"
+    },
+    "container": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tid": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "conn_tuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "src_ip",
+        "dst_ip",
+        "src_port",
+        "dst_port",
+        "protocol"
+      ],
+      "properties": {
+        "src_ip": {
+          "type": "string"
+        },
+        "dst_ip": {
+          "type": "string"
+        },
+        "src_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "dst_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "protocol": {
+          "type": "string"
+        }
+      }
+    },
+    "value": {
+      "type": "number"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warning",
+        "error"
+      ]
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "span_id": {
+      "type": "string"
+    },
+    "errno": {
+      "type": "integer"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

@@ -5,5 +5,7 @@ metadata:
   namespace: llm-slo-system
 data:
   collector-flags: |
-    --mode daemonset
-    --output jsonl
+    --scenario mixed
+    --count 0
+    --interval-ms 1000
+    --output stdout

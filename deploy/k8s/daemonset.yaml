@@ -26,6 +26,14 @@ spec:
             capabilities:
               add: ["BPF", "SYS_ADMIN", "SYS_RESOURCE", "NET_ADMIN"]
           args:
+            - "--input=-"
+            - "--scenario=mixed"
+            - "--count=0"
+            - "--interval-ms=1000"
+            - "--cluster=local"
+            - "--namespace=default"
+            - "--workload=llm-slo-collector"
+            - "--service=collector"
             - "--k8s-node=$(NODE_NAME)"
             - "--output=stdout"
           env:
