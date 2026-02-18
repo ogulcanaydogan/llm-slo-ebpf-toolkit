@@ -17,26 +17,26 @@ const (
 
 // SpanRef is the minimal span metadata used for correlation.
 type SpanRef struct {
-	TraceID   string
-	Service   string
-	Node      string
-	Pod       string
-	PID       int
-	ConnTuple string
-	Timestamp time.Time
+	TraceID   string    `json:"trace_id,omitempty"`
+	Service   string    `json:"service,omitempty"`
+	Node      string    `json:"node,omitempty"`
+	Pod       string    `json:"pod,omitempty"`
+	PID       int       `json:"pid,omitempty"`
+	ConnTuple string    `json:"conn_tuple,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // SignalRef is the normalized signal metadata.
 type SignalRef struct {
-	Signal    string
-	TraceID   string
-	Service   string
-	Node      string
-	Pod       string
-	PID       int
-	ConnTuple string
-	Timestamp time.Time
-	Value     float64
+	Signal    string    `json:"signal"`
+	TraceID   string    `json:"trace_id,omitempty"`
+	Service   string    `json:"service,omitempty"`
+	Node      string    `json:"node,omitempty"`
+	Pod       string    `json:"pod,omitempty"`
+	PID       int       `json:"pid,omitempty"`
+	ConnTuple string    `json:"conn_tuple,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	Value     float64   `json:"value"`
 }
 
 // Decision captures one correlation result.

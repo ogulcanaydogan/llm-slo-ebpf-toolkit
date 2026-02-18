@@ -11,13 +11,292 @@ data:
       "panels": [
         {
           "id": 1,
-          "title": "TTFT p95 (ms)",
+          "title": "TTFT p50 / p95 / p99 (ms)",
+          "description": "Time-to-first-token distribution. SLO target: p95 < 800ms.",
           "type": "timeseries",
-          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "ttft_p95"}],
-          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p95"},
+            {"expr": "histogram_quantile(0.99, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p99"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 400},
+                  {"color": "red", "value": 800}
+                ]
+              }
+            }
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "Token Throughput p50 / p95 (tok/s)",
+          "description": "Generated token throughput distribution.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "tok/s"}},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+        },
+        {
+          "id": 3,
+          "title": "Request Rate by Status",
+          "description": "Chat request throughput segmented by outcome and profile.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "sum by (status, profile) (rate(llm_slo_requests_total[5m]))", "legendFormat": "{{status}} / {{profile}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "reqps"}},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+        },
+        {
+          "id": 4,
+          "title": "Retrieval Latency Breakdown p95 (ms)",
+          "description": "Stacked retrieval components: vector DB, network, and DNS.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_vectordb_ms_bucket[5m])) by (le))", "legendFormat": "vectordb"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_network_ms_bucket[5m])) by (le))", "legendFormat": "network"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))", "legendFormat": "dns"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "ms"}},
+          "options": {"tooltip": {"mode": "multi"}},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+        },
+        {
+          "id": 5,
+          "title": "TTFT SLO Budget Burn Rate",
+          "description": "Rate of requests exceeding the 800ms TTFT threshold over a 1h window.",
+          "type": "stat",
+          "targets": [
+            {"expr": "sum(rate(llm_slo_ttft_ms_bucket{le=\"800\"}[1h])) / sum(rate(llm_slo_ttft_ms_count[1h]))", "legendFormat": "within SLO"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "yellow", "value": 0.95},
+                  {"color": "green", "value": 0.99}
+                ]
+              }
+            }
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16}
+        },
+        {
+          "id": 6,
+          "title": "Error Rate",
+          "description": "Fraction of requests with non-ok status.",
+          "type": "stat",
+          "targets": [
+            {"expr": "sum(rate(llm_slo_requests_total{status!=\"ok\"}[5m])) / sum(rate(llm_slo_requests_total[5m]))", "legendFormat": "error rate"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 0.01},
+                  {"color": "red", "value": 0.05}
+                ]
+              }
+            }
+          },
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 16}
+        },
+        {
+          "id": 7,
+          "title": "DNS Retrieval Latency Distribution",
+          "description": "DNS component of retrieval latency as heatmap.",
+          "type": "heatmap",
+          "targets": [
+            {"expr": "sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le)", "legendFormat": "{{le}}", "format": "heatmap"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
         }
       ],
       "schemaVersion": 39,
+      "style": "dark",
+      "tags": ["llm", "slo"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
       "title": "LLM SLO Overview",
-      "version": 1
+      "version": 2
+    }
+  kernel-correlation.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Correlation Rate by Tier",
+          "description": "Correlation decisions per second, broken down by confidence tier.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "sum by (tier) (rate(llm_slo_correlation_total[5m]))", "legendFormat": "{{tier}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "ops"}},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "Enrichment Success Rate",
+          "description": "Fraction of correlations that passed the 0.70 confidence threshold and enriched spans.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "sum(rate(llm_slo_correlation_total{enriched=\"true\"}[5m])) / sum(rate(llm_slo_correlation_total[5m]))", "legendFormat": "enrichment rate"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "yellow", "value": 0.70},
+                  {"color": "green", "value": 0.85}
+                ]
+              }
+            }
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+        },
+        {
+          "id": 3,
+          "title": "Correlation Tier Distribution",
+          "description": "Proportion of correlations at each confidence tier.",
+          "type": "piechart",
+          "targets": [
+            {"expr": "sum by (tier) (increase(llm_slo_correlation_total[1h]))", "legendFormat": "{{tier}}"}
+          ],
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}
+        },
+        {
+          "id": 4,
+          "title": "Enriched vs Diagnostic-Only",
+          "description": "Count of enriched (confidence ≥0.70) vs diagnostic-only correlations.",
+          "type": "piechart",
+          "targets": [
+            {"expr": "sum by (enriched) (increase(llm_slo_correlation_total[1h]))", "legendFormat": "enriched={{enriched}}"}
+          ],
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8}
+        },
+        {
+          "id": 5,
+          "title": "Agent Heartbeat",
+          "description": "Last heartbeat timestamp from the eBPF agent DaemonSet.",
+          "type": "stat",
+          "targets": [
+            {"expr": "max(llm_slo_agent_heartbeat)", "legendFormat": "heartbeat"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "dateTimeAsIso"}},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8}
+        }
+      ],
+      "schemaVersion": 39,
+      "style": "dark",
+      "tags": ["llm", "ebpf", "correlation"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "title": "Kernel Correlation",
+      "version": 2
+    }
+  incident-lab.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Outcomes by Fault Profile",
+          "description": "Request rate segmented by status and load profile.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "sum by (status, profile) (rate(llm_slo_requests_total[5m]))", "legendFormat": "{{status}} / {{profile}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "reqps"}},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "TTFT Under Fault Injection",
+          "description": "TTFT percentiles during active fault scenarios.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p95"},
+            {"expr": "histogram_quantile(0.99, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p99"}
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 400},
+                  {"color": "red", "value": 800}
+                ]
+              }
+            }
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+        },
+        {
+          "id": 3,
+          "title": "Retrieval DNS Impact",
+          "description": "DNS latency component during fault injection.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))", "legendFormat": "dns p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))", "legendFormat": "dns p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "ms"}},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+        },
+        {
+          "id": 4,
+          "title": "Correlation Enrichment Under Fault",
+          "description": "Correlation tier and enrichment decisions during active faults.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "sum by (tier, enriched) (rate(llm_slo_correlation_total[5m]))", "legendFormat": "{{tier}} enriched={{enriched}}"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "ops"}},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+        },
+        {
+          "id": 5,
+          "title": "Token Throughput Under Fault",
+          "description": "Token generation rate during fault injection.",
+          "type": "timeseries",
+          "targets": [
+            {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p50"},
+            {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p95"}
+          ],
+          "fieldConfig": {"defaults": {"unit": "tok/s"}},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+        }
+      ],
+      "schemaVersion": 39,
+      "style": "dark",
+      "tags": ["llm", "incident-lab"],
+      "templating": {"list": []},
+      "time": {"from": "now-1h", "to": "now"},
+      "title": "Incident Lab",
+      "version": 2
     }

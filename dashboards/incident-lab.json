@@ -4,15 +4,74 @@
   "panels": [
     {
       "id": 1,
-      "title": "Request Outcomes",
+      "title": "Request Outcomes by Fault Profile",
+      "description": "Request rate segmented by status and load profile.",
       "type": "timeseries",
       "targets": [
-        {
-          "expr": "sum by (status, profile) (rate(llm_slo_requests_total[5m]))",
-          "legendFormat": "{{status}}/{{profile}}"
-        }
+        {"expr": "sum by (status, profile) (rate(llm_slo_requests_total[5m]))", "legendFormat": "{{status}} / {{profile}}"}
       ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
       "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "TTFT Under Fault Injection",
+      "description": "TTFT percentiles during active fault scenarios.",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "p99"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 400},
+              {"color": "red", "value": 800}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "id": 3,
+      "title": "Retrieval DNS Impact",
+      "description": "DNS latency component during fault injection.",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))", "legendFormat": "dns p50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))", "legendFormat": "dns p95"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    },
+    {
+      "id": 4,
+      "title": "Correlation Enrichment Under Fault",
+      "description": "Correlation tier and enrichment decisions during active faults.",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "sum by (tier, enriched) (rate(llm_slo_correlation_total[5m]))", "legendFormat": "{{tier}} enriched={{enriched}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "id": 5,
+      "title": "Token Throughput Under Fault",
+      "description": "Token generation rate during fault injection.",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))", "legendFormat": "p95"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "tok/s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
     }
   ],
   "schemaVersion": 39,
@@ -21,5 +80,5 @@
   "templating": {"list": []},
   "time": {"from": "now-1h", "to": "now"},
   "title": "Incident Lab",
-  "version": 1
+  "version": 2
 }

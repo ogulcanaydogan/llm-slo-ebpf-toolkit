@@ -4,13 +4,38 @@ metadata:
   name: llm-slo-agent-config
   namespace: llm-slo-system
 data:
+  toolkit.yaml: |
+    apiVersion: toolkit.llm-slo.dev/v1alpha1
+    kind: ToolkitConfig
+    signal_set:
+      - dns_latency_ms
+      - tcp_retransmits_total
+      - runqueue_delay_ms
+      - connect_latency_ms
+      - tls_handshake_ms
+      - cpu_steal_pct
+    sampling:
+      events_per_second_limit: 10000
+      burst_limit: 20000
+    correlation:
+      window_ms: 2000
+    otlp:
+      endpoint: http://otel-collector.observability.svc.cluster.local:4318/v1/logs
+    safety:
+      max_overhead_pct: 5
   agent-flags: |
     --scenario mixed
     --count 0
     --interval-ms 1000
-    --output stdout
+    --event-kind probe
+    --output otlp
     --otlp-endpoint http://otel-collector.observability.svc.cluster.local:4318/v1/logs
     --otlp-timeout-ms 5000
+    --capability-mode auto
     --metrics-bind :2112
   scenario: "mixed"
-  output_mode: "stdout"
+  output_mode: "otlp"
+  event_kind: "probe"
+  capability_mode: "auto"
+  disable_signals: ""
+  disable_overhead_guard: "false"

@@ -18,6 +18,7 @@ jobs:
         run: |
           make build
           make test
+          make correlation-gate
           make schema-validate
       - name: kind smoke and deploy baseline
         run: |
@@ -27,6 +28,22 @@ jobs:
           kubectl -n llm-slo-system get daemonset llm-slo-agent
       - name: OTLP observability smoke
         run: make kind-observability-smoke
+      - name: RAG demo service smoke
+        run: |
+          kubectl apply -k demo/rag-service/k8s
+          kubectl -n default wait --for=condition=ready pod -l app=rag-service --timeout=120s
+          kubectl -n default port-forward svc/rag-service 18080:8080 &
+          PF_PID=$!
+          sleep 5
+          RESP=$(curl -sS --max-time 30 http://localhost:18080/chat \
+            -H 'content-type: application/json' \
+            -d '{"prompt":"test","profile":"rag_medium","seed":42,"max_tokens":5,"stream":false}')
+          echo "$RESP"
+          echo "$RESP" | grep -q '"ttft_ms"' || { echo "FAIL: missing ttft_ms"; kill $PF_PID 2>/dev/null; exit 1; }
+          echo "$RESP" | grep -q '"tokens_per_sec"' || { echo "FAIL: missing tokens_per_sec"; kill $PF_PID 2>/dev/null; exit 1; }
+          echo "$RESP" | grep -q '"trace_id"' || { echo "FAIL: missing trace_id"; kill $PF_PID 2>/dev/null; exit 1; }
+          echo "PASS: RAG demo service smoke"
+          kill $PF_PID 2>/dev/null || true
       - name: Privileged eBPF smoke
         run: |
           if [ "$(id -u)" -eq 0 ]; then

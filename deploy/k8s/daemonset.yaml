@@ -50,18 +50,44 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: EVENT_KIND
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: event_kind
             - name: OUTPUT_MODE
-              value: "stdout"
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: output_mode
             - name: OTLP_ENDPOINT
               value: "http://otel-collector.observability.svc.cluster.local:4318/v1/logs"
             - name: OTLP_TIMEOUT_MS
               value: "5000"
             - name: CHAOS_SCENARIO
-              value: "mixed"
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: scenario
             - name: SAMPLE_COUNT
               value: "0"
             - name: SAMPLE_INTERVAL_MS
               value: "1000"
+            - name: CAPABILITY_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: capability_mode
+            - name: DISABLE_SIGNALS
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: disable_signals
+            - name: DISABLE_OVERHEAD_GUARD
+              valueFrom:
+                configMapKeyRef:
+                  name: llm-slo-agent-config
+                  key: disable_overhead_guard
           command:
             - /agent
           args:
@@ -73,9 +99,16 @@ spec:
             - "--workload=llm-slo-agent"
             - "--service=agent"
             - "--k8s-node=$(NODE_NAME)"
+            - "--pod=$(POD_NAME)"
+            - "--container=agent"
+            - "--event-kind=$(EVENT_KIND)"
             - "--output=$(OUTPUT_MODE)"
             - "--otlp-endpoint=$(OTLP_ENDPOINT)"
             - "--otlp-timeout-ms=$(OTLP_TIMEOUT_MS)"
+            - "--capability-mode=$(CAPABILITY_MODE)"
+            - "--disable-signals=$(DISABLE_SIGNALS)"
+            - "--disable-overhead-guard=$(DISABLE_OVERHEAD_GUARD)"
+            - "--config=/etc/llm-slo-agent/toolkit.yaml"
             - "--metrics-bind=:2112"
           resources:
             requests:
@@ -96,6 +129,9 @@ spec:
               readOnly: true
             - name: bpf
               mountPath: /sys/fs/bpf
+            - name: agent-config
+              mountPath: /etc/llm-slo-agent
+              readOnly: true
       volumes:
         - name: sys
           hostPath:
@@ -109,3 +145,9 @@ spec:
         - name: bpf
           hostPath:
             path: /sys/fs/bpf
+        - name: agent-config
+          configMap:
+            name: llm-slo-agent-config
+            items:
+              - key: toolkit.yaml
+                path: toolkit.yaml

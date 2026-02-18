@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Rewrote README with full architecture diagrams, visual Mermaid explanations, competitive positioning quadrant, sequence diagram for TTFT attribution, and Gantt roadmap.
+- Expanded Grafana dashboards from 1 panel to 17 panels across 3 dashboards (SLO Overview, Kernel Correlation, Incident Lab) with thresholds, units, and descriptions.
+- Added all 3 dashboards to K8s ConfigMap for automatic Grafana provisioning.
+- Added RAG demo service smoke test to nightly CI workflow (validates TTFT, tokens/sec, and trace_id in response).
+- Expanded demo/rag-service README with streaming/non-streaming examples, expected output, PromQL queries, load profiles, and full flag reference.
+- Added correlation quality evaluator (`cmd/correlationeval`, `pkg/correlation/evaluator.go`) with labeled dataset and CI quality gate.
+
+## v0.1.0-alpha.5 - 2026-02-18
 - Added OTLP/HTTP SLO event exporter (`pkg/otel/slo_event_exporter.go`) and wired `cmd/collector` + `cmd/agent` to support `--output otlp`.
 - Added OTLP exporter tests and non-2xx failure handling coverage.
 - Added observability baseline manifests (`deploy/observability`) with OTel collector, Prometheus, Tempo, and Grafana.

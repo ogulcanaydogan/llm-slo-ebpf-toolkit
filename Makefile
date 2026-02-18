@@ -20,7 +20,8 @@
 	collector-smoke \
 	baseline-report \
 	chaos-matrix \
-	chaos-agent-otlp
+	chaos-agent-otlp \
+	correlation-gate
 
 SCHEMA_FILES := \
 	docs/contracts/v1/slo-event.schema.json \
@@ -105,3 +106,13 @@ chaos-matrix:
 
 chaos-agent-otlp:
 	./scripts/chaos/set_agent_mode.sh mixed otlp
+
+correlation-gate:
+	go run ./cmd/correlationeval \
+		--input pkg/correlation/testdata/labeled_pairs.jsonl \
+		--out artifacts/correlation/eval_summary.json \
+		--predictions-out artifacts/correlation/predictions.csv \
+		--window-ms 2000 \
+		--threshold 0.7 \
+		--min-precision 0.9 \
+		--min-recall 0.85

@@ -17,6 +17,8 @@ jobs:
         run: go build ./...
       - name: Go test
         run: go test ./...
+      - name: Correlation quality gate
+        run: make correlation-gate
       - name: Schema validation
         run: make schema-validate
       - name: golangci-lint
