@@ -10,6 +10,7 @@ This Terraform stack provisions one EC2 host that runs a continuously re-registe
   - `AmazonSSMManagedInstanceCore`
   - `ssm:GetParameter` on one SecureString path (PAT)
 - cloud-init bootstrap for Docker + kind + kubectl + helm + runner service
+  - bootstrap rewrites apt mirrors to `https://` so package install works with egress `443` only
 
 ## Prerequisites
 1. Terraform >= 1.6

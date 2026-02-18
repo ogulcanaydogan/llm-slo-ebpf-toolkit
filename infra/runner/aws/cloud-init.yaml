@@ -1,14 +1,4 @@
 #cloud-config
-package_update: true
-packages:
-  - ca-certificates
-  - curl
-  - jq
-  - unzip
-  - git
-  - docker.io
-  - awscli
-
 write_files:
   - path: /etc/llm-slo-runner.env
     permissions: "0644"
@@ -143,6 +133,10 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
+  - sed -i 's#http://#https://#g' /etc/apt/sources.list
+  - bash -lc 'for f in /etc/apt/sources.list.d/*.list; do [ -f "$f" ] && sed -i "s#http://#https://#g" "$f"; done'
+  - apt-get update -y
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl jq unzip git docker.io awscli make
   - useradd -m -s /bin/bash runner || true
   - usermod -aG docker runner
   - mkdir -p /opt/actions-runner
