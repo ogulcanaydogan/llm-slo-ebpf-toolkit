@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-slo-collector-config
+  namespace: llm-slo-system
+data:
+  collector-flags: |
+    --mode daemonset
+    --output jsonl

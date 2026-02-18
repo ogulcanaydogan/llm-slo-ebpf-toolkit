@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: llm-slo-collector
+  namespace: llm-slo-system
+spec:
+  selector:
+    matchLabels:
+      app: llm-slo-collector
+  template:
+    metadata:
+      labels:
+        app: llm-slo-collector
+    spec:
+      serviceAccountName: llm-slo-collector
+      hostPID: true
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: collector
+          image: ghcr.io/ogulcanaydogan/llm-slo-ebpf-toolkit-collector:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["BPF", "SYS_ADMIN", "SYS_RESOURCE", "NET_ADMIN"]
+          args:
+            - "--k8s-node=$(NODE_NAME)"
+            - "--output=stdout"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: bpf
+              mountPath: /sys/fs/bpf
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: modules
+          hostPath:
+            path: /lib/modules
+        - name: bpf
+          hostPath:
+            path: /sys/fs/bpf

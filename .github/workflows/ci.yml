@@ -15,6 +15,10 @@ jobs:
           go-version: "1.23"
       - name: Go test
         run: go test ./...
+      - name: Fault replay smoke
+        run: |
+          go run ./cmd/faultreplay --scenario mixed --count 24 --out /tmp/fault_samples.jsonl
+          go run ./cmd/benchgen --out artifacts/benchmarks-ci --scenario mixed_faults --input /tmp/fault_samples.jsonl
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:

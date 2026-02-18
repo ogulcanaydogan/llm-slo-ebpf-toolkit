@@ -95,6 +95,9 @@ func GenerateArtifactsWithInput(
 	if err := writeJSON(filepath.Join(outDir, "attribution_summary.json"), summary); err != nil {
 		return err
 	}
+	if err := writeReportMarkdown(filepath.Join(outDir, "report.md"), summary); err != nil {
+		return err
+	}
 
 	finishedAt := time.Now().UTC()
 	provenance := map[string]interface{}{
@@ -347,6 +350,42 @@ func writeJSON(path string, payload interface{}) error {
 	}
 	if err := os.WriteFile(path, bytes, 0o644); err != nil {
 		return fmt.Errorf("write json file: %w", err)
+	}
+	return nil
+}
+
+func writeReportMarkdown(path string, summary benchmarkSummary) error {
+	content := fmt.Sprintf(
+		"# Attribution Benchmark Report\n\n"+
+			"- Run ID: `%s`\n"+
+			"- Scenario: `%s`\n"+
+			"- Workload: `%s`\n"+
+			"- Attribution accuracy: `%.4f`\n"+
+			"- Detection delay median (s): `%.2f`\n"+
+			"- False positive rate: `%.4f`\n"+
+			"- False negative rate: `%.4f`\n"+
+			"- Burn-rate prediction error: `%.4f`\n"+
+			"- Collector CPU overhead (%%): `%.2f`\n"+
+			"- Collector memory overhead (MB): `%.2f`\n\n"+
+			"## Bundle\n\n"+
+			"- `incident_predictions.csv`\n"+
+			"- `confusion-matrix.csv`\n"+
+			"- `collector_overhead.csv`\n"+
+			"- `attribution_summary.json`\n"+
+			"- `provenance.json`\n",
+		summary.RunID,
+		summary.Scenario,
+		summary.WorkloadProfile,
+		summary.Metrics.AttributionAccuracy,
+		summary.Metrics.DetectionDelayMedianSeconds,
+		summary.Metrics.FalsePositiveRate,
+		summary.Metrics.FalseNegativeRate,
+		summary.Metrics.BurnRatePredictionError,
+		summary.Metrics.CollectorCPUOverheadPct,
+		summary.Metrics.CollectorMemoryOverheadMB,
+	)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write report markdown: %w", err)
 	}
 	return nil
 }

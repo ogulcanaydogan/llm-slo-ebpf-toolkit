@@ -87,6 +87,12 @@ Columns:
 }
 ```
 
+## File: `report.md`
+Required sections:
+- run metadata (`run_id`, scenario, workload)
+- core metrics (accuracy, detection delay, false positive/negative, overhead)
+- artifact bundle list for traceability
+
 ## Validation Rules
 - Summary metrics must be recomputable from confusion/class metrics and raw incident predictions.
 - CI fields must use the confidence level declared under `stats.confidence_level`.
