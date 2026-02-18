@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.0-alpha.4 - 2026-02-18
+- Added Kubernetes deployment skeleton for collector DaemonSet under `deploy/k8s`.
+- Added `cmd/faultreplay` and `pkg/faultreplay` for multi-domain synthetic replay streams (`provider_throttle`, `dns_latency`, `cpu_throttle`, `mixed`).
+- Extended benchmark harness to emit `report.md` as part of each artifact bundle.
+- Added CI smoke path for replay generation + benchmark bundle creation.
+
 ## v0.1.0-alpha.3 - 2026-02-17
 - Added mixed-fault benchmark scenario (`mixed_faults`) combining `provider_throttle` and `dns_latency` labels.
 - Added fixture-driven benchmark input flow using `pkg/benchmark/testdata/mixed_fault_samples.jsonl`.

@@ -20,6 +20,7 @@ func TestGenerateArtifacts(t *testing.T) {
 		"incident_predictions.csv",
 		"collector_overhead.csv",
 		"provenance.json",
+		"report.md",
 	}
 	for _, name := range required {
 		if _, err := os.Stat(filepath.Join(tmp, name)); err != nil {

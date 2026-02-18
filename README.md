@@ -25,6 +25,19 @@ go run ./cmd/benchgen --out artifacts/benchmarks-mixed --scenario mixed_faults
 ```bash
 go run ./cmd/benchgen --out artifacts/benchmarks-input --input pkg/benchmark/testdata/mixed_fault_samples.jsonl
 ```
+8. Generate replay samples for multi-domain faults:
+```bash
+go run ./cmd/faultreplay --scenario mixed --count 30 --out artifacts/fault-replay/fault_samples.jsonl
+```
+9. Build benchmark/report bundle from replay samples:
+```bash
+go run ./cmd/benchgen --out artifacts/benchmarks-replay --scenario mixed_faults --input artifacts/fault-replay/fault_samples.jsonl
+```
+
+## Kubernetes Deployment Skeleton
+```bash
+kubectl apply -k deploy/k8s
+```
 
 ## Differentiation Artifacts
 - `docs/strategy/differentiation-strategy.md`
