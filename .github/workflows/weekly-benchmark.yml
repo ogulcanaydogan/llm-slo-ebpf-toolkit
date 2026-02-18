@@ -85,7 +85,7 @@ jobs:
               mkdir -p "$OUT_DIR"
               go run ./cmd/faultinject \
                 --scenario "$SCENARIO" \
-                --count 24 \
+                --count 36 \
                 --out "$OUT_DIR/raw_samples.jsonl"
             done
             popd
