@@ -1,0 +1,14 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: false
+nodes:
+  - role: control-plane
+    labels:
+      node-role.llm-slo/control-plane: "true"
+  - role: worker
+    labels:
+      node-role.llm-slo/worker: "true"
+  - role: worker
+    labels:
+      node-role.llm-slo/worker: "true"

@@ -11,7 +11,8 @@ var scenarioFaultLabels = map[string][]string{
 	"provider_throttle": {"provider_throttle"},
 	"dns_latency":       {"dns_latency"},
 	"cpu_throttle":      {"cpu_throttle"},
-	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle"},
+	"memory_pressure":   {"memory_pressure"},
+	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle", "memory_pressure"},
 }
 
 // GenerateFaultSamples creates deterministic synthetic fault samples for replay.
@@ -53,5 +54,11 @@ func GenerateFaultSamples(
 
 // SupportedScenarios lists accepted replay scenario names.
 func SupportedScenarios() []string {
-	return []string{"provider_throttle", "dns_latency", "cpu_throttle", "mixed"}
+	return []string{
+		"provider_throttle",
+		"dns_latency",
+		"cpu_throttle",
+		"memory_pressure",
+		"mixed",
+	}
 }

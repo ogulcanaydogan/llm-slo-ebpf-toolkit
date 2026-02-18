@@ -29,3 +29,16 @@ func TestGenerateFaultSamplesRejectsUnsupportedScenario(t *testing.T) {
 		t.Fatal("expected unsupported scenario error")
 	}
 }
+
+func TestGenerateFaultSamplesMemoryPressure(t *testing.T) {
+	samples, err := GenerateFaultSamples("memory_pressure", 3, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatalf("generate samples: %v", err)
+	}
+	if len(samples) != 3 {
+		t.Fatalf("expected 3 samples, got %d", len(samples))
+	}
+	if samples[0].FaultLabel != "memory_pressure" {
+		t.Fatalf("expected memory_pressure label, got %s", samples[0].FaultLabel)
+	}
+}

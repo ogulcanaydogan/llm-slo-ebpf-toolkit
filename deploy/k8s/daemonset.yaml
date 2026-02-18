@@ -1,46 +1,82 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: llm-slo-collector
+  name: llm-slo-agent
   namespace: llm-slo-system
 spec:
   selector:
     matchLabels:
-      app: llm-slo-collector
+      app: llm-slo-agent
   template:
     metadata:
       labels:
-        app: llm-slo-collector
+        app: llm-slo-agent
     spec:
-      serviceAccountName: llm-slo-collector
+      serviceAccountName: llm-slo-agent
       hostPID: true
       hostNetwork: true
       tolerations:
         - operator: Exists
       containers:
-        - name: collector
-          image: ghcr.io/ogulcanaydogan/llm-slo-ebpf-toolkit-collector:latest
+        - name: agent
+          image: ghcr.io/ogulcanaydogan/llm-slo-ebpf-toolkit-agent:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
             capabilities:
               add: ["BPF", "SYS_ADMIN", "SYS_RESOURCE", "NET_ADMIN"]
-          args:
-            - "--input=-"
-            - "--scenario=mixed"
-            - "--count=0"
-            - "--interval-ms=1000"
-            - "--cluster=local"
-            - "--namespace=default"
-            - "--workload=llm-slo-collector"
-            - "--service=collector"
-            - "--k8s-node=$(NODE_NAME)"
-            - "--output=stdout"
+          ports:
+            - name: metrics
+              containerPort: 2112
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
           env:
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OUTPUT_MODE
+              value: "stdout"
+            - name: OTLP_ENDPOINT
+              value: "http://otel-collector.observability.svc.cluster.local:4318/v1/logs"
+            - name: OTLP_TIMEOUT_MS
+              value: "5000"
+            - name: CHAOS_SCENARIO
+              value: "mixed"
+            - name: SAMPLE_COUNT
+              value: "0"
+            - name: SAMPLE_INTERVAL_MS
+              value: "1000"
+          command:
+            - /agent
+          args:
+            - "--scenario=$(CHAOS_SCENARIO)"
+            - "--count=$(SAMPLE_COUNT)"
+            - "--interval-ms=$(SAMPLE_INTERVAL_MS)"
+            - "--cluster=local"
+            - "--namespace=default"
+            - "--workload=llm-slo-agent"
+            - "--service=agent"
+            - "--k8s-node=$(NODE_NAME)"
+            - "--output=$(OUTPUT_MODE)"
+            - "--otlp-endpoint=$(OTLP_ENDPOINT)"
+            - "--otlp-timeout-ms=$(OTLP_TIMEOUT_MS)"
+            - "--metrics-bind=:2112"
           resources:
             requests:
               cpu: 100m
@@ -55,6 +91,9 @@ spec:
             - name: modules
               mountPath: /lib/modules
               readOnly: true
+            - name: proc
+              mountPath: /proc
+              readOnly: true
             - name: bpf
               mountPath: /sys/fs/bpf
       volumes:
@@ -64,6 +103,9 @@ spec:
         - name: modules
           hostPath:
             path: /lib/modules
+        - name: proc
+          hostPath:
+            path: /proc
         - name: bpf
           hostPath:
             path: /sys/fs/bpf

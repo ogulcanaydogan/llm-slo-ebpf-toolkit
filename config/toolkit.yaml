@@ -1,0 +1,18 @@
+apiVersion: toolkit.llm-slo.dev/v1alpha1
+kind: ToolkitConfig
+signal_set:
+  - dns_latency_ms
+  - tcp_retransmits_total
+  - runqueue_delay_ms
+  - connect_latency_ms
+  - tls_handshake_ms
+  - cpu_steal_pct
+sampling:
+  events_per_second_limit: 10000
+  burst_limit: 20000
+correlation:
+  window_ms: 2000
+otlp:
+  endpoint: http://otel-collector:4317
+safety:
+  max_overhead_pct: 5

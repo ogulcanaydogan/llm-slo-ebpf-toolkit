@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+- Added OTLP/HTTP SLO event exporter (`pkg/otel/slo_event_exporter.go`) and wired `cmd/collector` + `cmd/agent` to support `--output otlp`.
+- Added OTLP exporter tests and non-2xx failure handling coverage.
+- Added observability baseline manifests (`deploy/observability`) with OTel collector, Prometheus, Tempo, and Grafana.
+- Added kind observability smoke script (`test/integration-kind/observability-smoke.sh`) and make target (`kind-observability-smoke`).
+- Added chaos automation scripts (`scripts/chaos/set_agent_mode.sh`, `scripts/chaos/run_fault_matrix.sh`) and make targets (`chaos-matrix`, `chaos-agent-otlp`).
+- Extended fault replay scenarios with `memory_pressure`.
+
 ## v0.1.0-alpha.4 - 2026-02-18
 - Added Kubernetes deployment skeleton for collector DaemonSet under `deploy/k8s`.
 - Added `cmd/faultreplay` and `pkg/faultreplay` for multi-domain synthetic replay streams (`provider_throttle`, `dns_latency`, `cpu_throttle`, `mixed`).

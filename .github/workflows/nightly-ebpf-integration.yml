@@ -1,0 +1,53 @@
+name: nightly-ebpf-integration
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  privileged-kind-integration:
+    runs-on: [self-hosted, linux, ebpf]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Build and unit tests
+        run: |
+          make build
+          make test
+          make schema-validate
+      - name: kind smoke and deploy baseline
+        run: |
+          make kind-up
+          kubectl apply -k deploy/observability
+          kubectl apply -k deploy/k8s
+          kubectl -n llm-slo-system get daemonset llm-slo-agent
+      - name: OTLP observability smoke
+        run: make kind-observability-smoke
+      - name: Privileged eBPF smoke
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            make ebpf-smoke
+          else
+            echo "skipping ebpf-smoke: runner is not root"
+          fi
+      - name: Incident smoke subset (DNS/retransmit/CPU synthetic)
+        run: |
+          COUNT=12 OUT_DIR=artifacts/benchmarks-nightly-matrix make chaos-matrix
+          go run ./cmd/benchgen --out artifacts/benchmarks-nightly --scenario mixed_faults
+      - name: Upload nightly artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-ebpf-artifacts
+          path: |
+            artifacts/collector
+            artifacts/benchmarks-nightly
+            artifacts/benchmarks-matrix
+            artifacts/benchmarks-nightly-matrix
+          if-no-files-found: warn
+      - name: kind teardown
+        if: always()
+        run: make kind-down

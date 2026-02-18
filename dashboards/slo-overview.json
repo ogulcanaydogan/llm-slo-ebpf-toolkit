@@ -1,0 +1,57 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "title": "TTFT p95 (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))",
+          "legendFormat": "ttft_p95"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Tokens/sec p50",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(llm_slo_tokens_per_sec_bucket[5m])) by (le))",
+          "legendFormat": "tokens_per_sec_p50"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "Retrieval Breakdown p95 (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_vectordb_ms_bucket[5m])) by (le))",
+          "legendFormat": "vectordb"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_network_ms_bucket[5m])) by (le))",
+          "legendFormat": "network"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(llm_slo_retrieval_dns_ms_bucket[5m])) by (le))",
+          "legendFormat": "dns"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["llm", "slo"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "LLM SLO Overview",
+  "version": 1
+}

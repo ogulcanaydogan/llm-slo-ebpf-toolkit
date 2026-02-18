@@ -1,11 +1,16 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: llm-slo-collector-config
+  name: llm-slo-agent-config
   namespace: llm-slo-system
 data:
-  collector-flags: |
+  agent-flags: |
     --scenario mixed
     --count 0
     --interval-ms 1000
     --output stdout
+    --otlp-endpoint http://otel-collector.observability.svc.cluster.local:4318/v1/logs
+    --otlp-timeout-ms 5000
+    --metrics-bind :2112
+  scenario: "mixed"
+  output_mode: "stdout"

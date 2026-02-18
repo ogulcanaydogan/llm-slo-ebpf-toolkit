@@ -47,3 +47,32 @@ type IncidentAttribution struct {
 	TraceIDs             []string   `json:"trace_ids,omitempty"`
 	RequestIDs           []string   `json:"request_ids,omitempty"`
 }
+
+// ConnTuple identifies one network flow tuple observed by probes.
+type ConnTuple struct {
+	SrcIP    string `json:"src_ip"`
+	DstIP    string `json:"dst_ip"`
+	SrcPort  int    `json:"src_port"`
+	DstPort  int    `json:"dst_port"`
+	Protocol string `json:"protocol"`
+}
+
+// ProbeEventV1 is the normalized probe envelope emitted by the node agent.
+type ProbeEventV1 struct {
+	TSUnixNano int64      `json:"ts_unix_nano"`
+	Signal     string     `json:"signal"`
+	Node       string     `json:"node"`
+	Namespace  string     `json:"namespace"`
+	Pod        string     `json:"pod"`
+	Container  string     `json:"container"`
+	PID        int        `json:"pid"`
+	TID        int        `json:"tid"`
+	ConnTuple  *ConnTuple `json:"conn_tuple,omitempty"`
+	Value      float64    `json:"value"`
+	Unit       string     `json:"unit"`
+	Status     string     `json:"status"`
+	TraceID    string     `json:"trace_id,omitempty"`
+	SpanID     string     `json:"span_id,omitempty"`
+	Errno      *int       `json:"errno,omitempty"`
+	Confidence *float64   `json:"confidence,omitempty"`
+}

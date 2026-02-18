@@ -1,0 +1,27 @@
+[
+  {
+    "id": "doc-001",
+    "title": "SLO Primer",
+    "content": "TTFT captures first-token responsiveness and should be tracked with p50 p95 p99 views."
+  },
+  {
+    "id": "doc-002",
+    "title": "Kernel Signals",
+    "content": "DNS latency and TCP retransmits are frequent hidden causes of LLM tail latency."
+  },
+  {
+    "id": "doc-003",
+    "title": "Correlation",
+    "content": "Join eBPF telemetry with trace identifiers and confidence thresholds to avoid noisy attribution."
+  },
+  {
+    "id": "doc-004",
+    "title": "Incident Lab",
+    "content": "Deterministic scenarios with fixed seeds provide reproducible reliability demonstrations."
+  },
+  {
+    "id": "doc-005",
+    "title": "Benchmarking",
+    "content": "Release regression gates require confidence intervals and reproducible artifact bundles."
+  }
+]

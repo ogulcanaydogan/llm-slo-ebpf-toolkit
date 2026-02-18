@@ -1,6 +1,6 @@
 # Attribution Benchmark Report
 
-- Run ID: `2026-02-18T05-51-13Z`
+- Run ID: `2026-02-18T06-26-47Z`
 - Scenario: `mixed_faults`
 - Workload: `rag_mixed`
 - Attribution accuracy: `1.0000`

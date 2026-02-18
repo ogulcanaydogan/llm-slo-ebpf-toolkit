@@ -1,0 +1,25 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Outcomes",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (status, profile) (rate(llm_slo_requests_total[5m]))",
+          "legendFormat": "{{status}}/{{profile}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["llm", "incident-lab"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "Incident Lab",
+  "version": 1
+}

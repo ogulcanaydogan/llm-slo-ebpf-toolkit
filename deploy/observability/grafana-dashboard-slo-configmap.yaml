@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-slo
+  namespace: observability
+data:
+  slo-overview.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "TTFT p95 (ms)",
+          "type": "timeseries",
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(llm_slo_ttft_ms_bucket[5m])) by (le))", "legendFormat": "ttft_p95"}],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+        }
+      ],
+      "schemaVersion": 39,
+      "title": "LLM SLO Overview",
+      "version": 1
+    }

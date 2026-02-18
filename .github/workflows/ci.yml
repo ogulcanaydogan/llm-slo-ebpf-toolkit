@@ -6,24 +6,44 @@ on:
   pull_request:
 
 jobs:
-  test:
+  pr-gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
+      - name: Go build
+        run: go build ./...
       - name: Go test
         run: go test ./...
-      - name: Collector fault-injection smoke
-        run: |
-          go run ./cmd/faultinject --scenario mixed --count 16 --out /tmp/faultinject_raw.jsonl
-          go run ./cmd/collector --input /tmp/faultinject_raw.jsonl --output jsonl --output-path /tmp/slo_events.jsonl
-      - name: Fault replay smoke
-        run: |
-          go run ./cmd/faultreplay --scenario mixed --count 24 --out /tmp/fault_samples.jsonl
-          go run ./cmd/benchgen --out artifacts/benchmarks-ci --scenario mixed_faults --input /tmp/fault_samples.jsonl
+      - name: Schema validation
+        run: make schema-validate
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.60
+      - name: Collector fault-injection smoke
+        run: |
+          go run ./cmd/faultinject --scenario mixed --count 16 --out /tmp/faultinject_raw.jsonl
+          go run ./cmd/collector --input /tmp/faultinject_raw.jsonl --output jsonl --output-path /tmp/slo_events.jsonl
+      - name: OTLP output smoke
+        run: |
+          python3 - <<'PY' &
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          class Handler(BaseHTTPRequestHandler):
+              def do_POST(self):
+                  self.send_response(202)
+                  self.end_headers()
+              def log_message(self, format, *args):
+                  pass
+          HTTPServer(("127.0.0.1", 4318), Handler).serve_forever()
+          PY
+          OTLP_PID=$!
+          trap 'kill $OTLP_PID >/dev/null 2>&1 || true' EXIT
+          go run ./cmd/collector --count 3 --output otlp --otlp-endpoint http://127.0.0.1:4318/v1/logs
+          go run ./cmd/agent --count 3 --output otlp --otlp-endpoint http://127.0.0.1:4318/v1/logs
+      - name: Fault replay smoke
+        run: |
+          go run ./cmd/faultreplay --scenario mixed --count 24 --out /tmp/fault_samples.jsonl
+          go run ./cmd/benchgen --out artifacts/benchmarks-ci --scenario mixed_faults --input /tmp/fault_samples.jsonl

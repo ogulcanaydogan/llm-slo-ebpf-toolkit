@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - otel-collector-configmap.yaml
+  - otel-collector-deployment.yaml
+  - otel-collector-service.yaml
+  - prometheus-configmap.yaml
+  - prometheus-deployment.yaml
+  - prometheus-service.yaml
+  - tempo-configmap.yaml
+  - tempo-deployment.yaml
+  - tempo-service.yaml
+  - grafana-datasources-configmap.yaml
+  - grafana-dashboard-provider-configmap.yaml
+  - grafana-dashboard-slo-configmap.yaml
+  - grafana-deployment.yaml
+  - grafana-service.yaml

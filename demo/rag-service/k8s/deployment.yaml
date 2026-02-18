@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+    spec:
+      containers:
+        - name: rag-service
+          image: ghcr.io/ogulcanaydogan/llm-slo-ebpf-toolkit-rag-service:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/rag-service"]
+          args:
+            - "--bind=:8080"
+            - "--metrics-bind=:2113"
+            - "--service-name=rag-service"
+            - "--otlp-endpoint=otel-collector.observability.svc.cluster.local:4317"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 2113
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

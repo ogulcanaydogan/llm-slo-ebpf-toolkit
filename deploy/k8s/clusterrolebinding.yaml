@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: llm-slo-collector
+  name: llm-slo-agent
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: llm-slo-collector
+  name: llm-slo-agent
 subjects:
   - kind: ServiceAccount
-    name: llm-slo-collector
+    name: llm-slo-agent
     namespace: llm-slo-system

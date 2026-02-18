@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/schema"
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/semconv"
 )
 
 // FaultSample is the normalized benchmark input for attribution.
@@ -47,6 +48,32 @@ func MapFaultLabel(label string) string {
 // BuildAttribution converts one fault sample into an incident attribution record.
 func BuildAttribution(sample FaultSample) schema.IncidentAttribution {
 	domain := MapFaultLabel(sample.FaultLabel)
+	evidence := []schema.Evidence{
+		{
+			Signal: "fault_label",
+			Value:  sample.FaultLabel,
+			Source: "application",
+		},
+		{
+			Signal: "mapped_domain",
+			Value:  domain,
+			Source: "ebpf",
+		},
+		{
+			Signal: semconv.AttrCorrelationConf,
+			Value:  sample.Confidence,
+			Source: "otel",
+		},
+	}
+
+	if sample.FaultLabel == "dns_latency" {
+		evidence = append(evidence, schema.Evidence{
+			Signal: semconv.AttrDNSLatencyMS,
+			Value:  180.0,
+			Source: "ebpf",
+		})
+	}
+
 	return schema.IncidentAttribution{
 		IncidentID:           sample.IncidentID,
 		Timestamp:            sample.Timestamp,
@@ -55,18 +82,7 @@ func BuildAttribution(sample FaultSample) schema.IncidentAttribution {
 		Service:              sample.Service,
 		PredictedFaultDomain: domain,
 		Confidence:           sample.Confidence,
-		Evidence: []schema.Evidence{
-			{
-				Signal: "fault_label",
-				Value:  sample.FaultLabel,
-				Source: "application",
-			},
-			{
-				Signal: "mapped_domain",
-				Value:  domain,
-				Source: "ebpf",
-			},
-		},
+		Evidence:             evidence,
 		SLOImpact: schema.SLOImpact{
 			SLI:           "ttft_ms",
 			BurnRate:      sample.BurnRate,
