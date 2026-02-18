@@ -21,7 +21,8 @@
 	baseline-report \
 	chaos-matrix \
 	chaos-agent-otlp \
-	correlation-gate
+	correlation-gate \
+	m5-gate
 
 SCHEMA_FILES := \
 	docs/contracts/v1/slo-event.schema.json \
@@ -116,3 +117,17 @@ correlation-gate:
 		--threshold 0.7 \
 		--min-precision 0.9 \
 		--min-recall 0.85
+
+m5-gate:
+	go run ./cmd/m5gate \
+		--candidate-root artifacts/weekly-benchmark \
+		--baseline-root artifacts/weekly-benchmark/baseline \
+		--scenarios dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed \
+		--max-overhead-pct 3 \
+		--max-variance-pct 10 \
+		--min-runs 3 \
+		--ttft-regression-pct 5 \
+		--alpha 0.05 \
+		--bootstrap-iters 1000 \
+		--out-json artifacts/weekly-benchmark/m5_gate_summary.json \
+		--out-md artifacts/weekly-benchmark/m5_gate_summary.md

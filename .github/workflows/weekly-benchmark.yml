@@ -8,7 +8,7 @@ on:
 jobs:
   full-benchmark-matrix:
     runs-on: [self-hosted, linux, ebpf]
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,37 +30,74 @@ jobs:
           kubectl apply -k deploy/observability
           kubectl apply -k deploy/k8s
 
-      - name: Run full scenario matrix (6 scenarios × 10 reps)
+      - name: Run full scenario matrix (6 scenarios × 3 reruns)
         run: |
+          set -euo pipefail
           mkdir -p artifacts/weekly-benchmark
-          for SCENARIO in dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed; do
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          for SCENARIO in "${SCENARIOS[@]}"; do
             echo "=== Running scenario: $SCENARIO ==="
-            go run ./cmd/faultinject \
-              --scenario "$SCENARIO" \
-              --count 24 \
-              --out "artifacts/weekly-benchmark/${SCENARIO}_raw.jsonl"
-            go run ./cmd/faultreplay \
-              --scenario "$SCENARIO" \
-              --count 24 \
-              --out "artifacts/weekly-benchmark/${SCENARIO}_replay.jsonl"
-            go run ./cmd/benchgen \
-              --out "artifacts/weekly-benchmark/${SCENARIO}" \
-              --scenario "$SCENARIO" \
-              --input "artifacts/weekly-benchmark/${SCENARIO}_replay.jsonl"
+            for RUN in 1 2 3; do
+              RUN_DIR="artifacts/weekly-benchmark/${SCENARIO}/run-${RUN}"
+              mkdir -p "$RUN_DIR"
+              echo "--- rerun $RUN ---"
+              go run ./cmd/faultinject \
+                --scenario "$SCENARIO" \
+                --count 24 \
+                --out "$RUN_DIR/raw_samples.jsonl"
+              go run ./cmd/faultreplay \
+                --scenario "$SCENARIO" \
+                --count 24 \
+                --out "$RUN_DIR/replay.jsonl"
+
+              BENCH_SCENARIO="$SCENARIO"
+              if [[ "$SCENARIO" == "mixed" ]]; then
+                BENCH_SCENARIO="mixed_faults"
+              fi
+              go run ./cmd/benchgen \
+                --out "$RUN_DIR" \
+                --scenario "$BENCH_SCENARIO" \
+                --input "$RUN_DIR/replay.jsonl"
+            done
           done
 
-      - name: Generate consolidated report
+      - name: Build baseline dataset from previous tag
         run: |
-          go run ./cmd/benchgen \
-            --out artifacts/weekly-benchmark/consolidated \
-            --scenario mixed_faults \
-            --input artifacts/weekly-benchmark/mixed_replay.jsonl
+          set -euo pipefail
+          mkdir -p artifacts/weekly-benchmark/baseline
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "Using previous tag baseline: $PREV_TAG"
+            WORKTREE_DIR="$(mktemp -d)"
+            cleanup() {
+              git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || true
+            }
+            trap cleanup EXIT
+            git worktree add --detach "$WORKTREE_DIR" "$PREV_TAG"
+            pushd "$WORKTREE_DIR"
+            for SCENARIO in "${SCENARIOS[@]}"; do
+              OUT_DIR="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/${SCENARIO}"
+              mkdir -p "$OUT_DIR"
+              go run ./cmd/faultinject \
+                --scenario "$SCENARIO" \
+                --count 24 \
+                --out "$OUT_DIR/raw_samples.jsonl"
+            done
+            popd
+            cleanup
+            trap - EXIT
+          else
+            echo "No previous tag found; using current run-1 as GA anchor baseline"
+            for SCENARIO in "${SCENARIOS[@]}"; do
+              OUT_DIR="artifacts/weekly-benchmark/baseline/${SCENARIO}"
+              mkdir -p "$OUT_DIR"
+              cp "artifacts/weekly-benchmark/${SCENARIO}/run-1/raw_samples.jsonl" "$OUT_DIR/raw_samples.jsonl"
+            done
+          fi
 
-      - name: Release-tag regression check
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-          echo "Previous release tag: $PREV_TAG"
-          echo "Regression baseline: $PREV_TAG" >> artifacts/weekly-benchmark/regression_note.txt
+      - name: Run M5 GA gates (B5, D3, E3)
+        run: make m5-gate
 
       - name: Upload weekly artifacts
         uses: actions/upload-artifact@v4

@@ -11,6 +11,9 @@ func TestMapFaultLabel(t *testing.T) {
 	if got := MapFaultLabel("provider_throttle"); got != "provider_throttle" {
 		t.Fatalf("unexpected mapping: %s", got)
 	}
+	if got := MapFaultLabel("network_partition"); got != "network_egress" {
+		t.Fatalf("unexpected network_partition mapping: %s", got)
+	}
 	if got := MapFaultLabel("unknown_case"); got != "unknown" {
 		t.Fatalf("unexpected unknown mapping: %s", got)
 	}

@@ -18,8 +18,9 @@ func TestGenerateFaultSamplesMixed(t *testing.T) {
 		samples[0].FaultLabel,
 		samples[1].FaultLabel,
 		samples[2].FaultLabel,
+		samples[4].FaultLabel,
 	}
-	if labels[0] != "provider_throttle" || labels[1] != "dns_latency" || labels[2] != "cpu_throttle" {
+	if labels[0] != "provider_throttle" || labels[1] != "dns_latency" || labels[2] != "cpu_throttle" || labels[3] != "network_partition" {
 		t.Fatalf("unexpected label order: %v", labels)
 	}
 }
@@ -40,5 +41,18 @@ func TestGenerateFaultSamplesMemoryPressure(t *testing.T) {
 	}
 	if samples[0].FaultLabel != "memory_pressure" {
 		t.Fatalf("expected memory_pressure label, got %s", samples[0].FaultLabel)
+	}
+}
+
+func TestGenerateFaultSamplesNetworkPartition(t *testing.T) {
+	samples, err := GenerateFaultSamples("network_partition", 2, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatalf("generate samples: %v", err)
+	}
+	if len(samples) != 2 {
+		t.Fatalf("expected 2 samples, got %d", len(samples))
+	}
+	if samples[0].FaultLabel != "network_partition" {
+		t.Fatalf("expected network_partition label, got %s", samples[0].FaultLabel)
 	}
 }

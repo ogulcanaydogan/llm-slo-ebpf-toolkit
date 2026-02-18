@@ -352,6 +352,9 @@ make build && make test
 
 # Run correlation quality gate
 make correlation-gate
+
+# Run M5 GA gate bundle (B5 overhead, D3 variance, E3 significance)
+make m5-gate
 ```
 
 ### Local Cluster Deployment
@@ -408,6 +411,7 @@ cmd/
 ├── faultreplay/     # Synthetic fault scenario streams
 ├── faultinject/     # Raw fault injection harness
 ├── correlationeval/ # Correlation quality gate evaluator
+├── m5gate/          # M5 GA gate bundle evaluator (B5/D3/E3)
 ├── sloctl/          # CLI prerequisite checker
 └── loadgen/         # Load generation utility
 
@@ -418,6 +422,7 @@ pkg/
 ├── correlation/     # Span-signal correlation with confidence tiers
 ├── otel/            # OTLP/HTTP exporters for SLO events
 ├── benchmark/       # Benchmark harness and artifact generation
+├── releasegate/     # GA gate calculations (overhead/variance/significance)
 ├── faultreplay/     # Multi-domain fault scenario engine
 ├── signals/         # Kernel signal models
 ├── slo/             # SLO burn-rate calculation

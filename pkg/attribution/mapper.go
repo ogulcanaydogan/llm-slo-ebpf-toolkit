@@ -34,6 +34,8 @@ func MapFaultLabel(label string) string {
 		return "cpu_throttle"
 	case "memory_pressure":
 		return "memory_pressure"
+	case "network_partition":
+		return "network_egress"
 	case "provider_throttle":
 		return "provider_throttle"
 	case "provider_error":

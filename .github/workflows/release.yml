@@ -30,7 +30,7 @@ jobs:
       - name: Build release binaries
         run: |
           mkdir -p dist
-          for CMD in agent collector attributor benchgen faultreplay faultinject correlationeval sloctl loadgen; do
+          for CMD in agent collector attributor benchgen faultreplay faultinject correlationeval m5gate sloctl loadgen; do
             CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
               go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
               -o "dist/${CMD}-linux-amd64" "./cmd/${CMD}"

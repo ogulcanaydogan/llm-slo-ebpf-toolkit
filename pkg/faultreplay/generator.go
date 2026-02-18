@@ -12,7 +12,8 @@ var scenarioFaultLabels = map[string][]string{
 	"dns_latency":       {"dns_latency"},
 	"cpu_throttle":      {"cpu_throttle"},
 	"memory_pressure":   {"memory_pressure"},
-	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle", "memory_pressure"},
+	"network_partition": {"network_partition"},
+	"mixed":             {"provider_throttle", "dns_latency", "cpu_throttle", "memory_pressure", "network_partition"},
 }
 
 // GenerateFaultSamples creates deterministic synthetic fault samples for replay.
@@ -59,6 +60,7 @@ func SupportedScenarios() []string {
 		"dns_latency",
 		"cpu_throttle",
 		"memory_pressure",
+		"network_partition",
 		"mixed",
 	}
 }

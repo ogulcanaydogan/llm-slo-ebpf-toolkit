@@ -93,6 +93,23 @@ Required sections:
 - core metrics (accuracy, detection delay, false positive/negative, overhead)
 - artifact bundle list for traceability
 
+## File: `m5_gate_summary.json`
+Required top-level fields:
+- `generated_at`
+- `candidate_root`
+- `baseline_root`
+- `overhead` (`pass`, `threshold_pct`, `max_observed_pct`)
+- `variance` (`pass`, per-scenario `variance_pct`)
+- `significance` (`pass`, per-scenario `mann_whitney_p_value`, `bootstrap_delta_ci95`)
+- `pass`
+
+## File: `m5_gate_summary.md`
+Required sections:
+- B5 overhead verdict
+- D3 rerun variance verdict
+- E3 significance verdict
+- failure details when `pass=false`
+
 ## Validation Rules
 - Summary metrics must be recomputable from confusion/class metrics and raw incident predictions.
 - CI fields must use the confidence level declared under `stats.confidence_level`.
