@@ -14,6 +14,7 @@ const (
 	AttrRetrievalNetworkMS = "llm.slo.retrieval.network_ms"
 	AttrRetrievalDNSMS     = "llm.slo.retrieval.dns_ms"
 
+	AttrCFSThrottledMS    = "llm.ebpf.cpu.cfs_throttled_ms"
 	AttrRetrievalKernelMS = "llm.ebpf.retrieval.kernel_attributed_ms"
 	AttrRetryStorm        = "llm.ebpf.tcp.retry_storm"
 )

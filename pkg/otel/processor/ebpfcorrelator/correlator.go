@@ -154,6 +154,8 @@ func signalAttrKey(signal string) (string, bool) {
 		return semconv.AttrTLSHandshakeMS, true
 	case "cpu_steal_pct":
 		return semconv.AttrCPUStealPct, true
+	case "cfs_throttled_ms":
+		return semconv.AttrCFSThrottledMS, true
 	default:
 		return "", false
 	}

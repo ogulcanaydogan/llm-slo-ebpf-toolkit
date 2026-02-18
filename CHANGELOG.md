@@ -19,6 +19,11 @@
 - Added 6th fault scenario `network_partition` with high connect latency, TCP retransmit storms, and DNS timeouts.
 - Added Prometheus alerting rules (`deploy/observability/prometheus-alerts.yaml`) with 5 alerts: TTFT budget burn, error rate, correlation degraded, agent heartbeat stale, overhead high.
 - Added 6 declarative incident scenario YAML definitions under `test/incident-lab/scenarios/`.
+- Added `cfs_throttled_ms` signal mapping to OTel correlator with `llm.ebpf.cpu.cfs_throttled_ms` semconv attribute.
+- Added weekly benchmark workflow (`.github/workflows/weekly-benchmark.yml`) running full 6-scenario matrix with 10 repetitions.
+- Added release workflow (`.github/workflows/release.yml`) with cross-compiled binaries, SHA-256 checksums, SBOM (syft), and provenance.
+- Updated go-no-go checklist with gate status for all M0–M4 milestones (all passing).
+- Updated README roadmap and milestone table to reflect M0–M4 complete, M5 in progress.
 
 ## v0.1.0-alpha.5 - 2026-02-18
 - Added OTLP/HTTP SLO event exporter (`pkg/otel/slo_event_exporter.go`) and wired `cmd/collector` + `cmd/agent` to support `--output otlp`.

@@ -1,0 +1,75 @@
+name: weekly-benchmark
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  full-benchmark-matrix:
+    runs-on: [self-hosted, linux, ebpf]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Build and validate
+        run: |
+          make build
+          make test
+          make correlation-gate
+          make schema-validate
+
+      - name: Deploy kind cluster and observability stack
+        run: |
+          make kind-up
+          kubectl apply -k deploy/observability
+          kubectl apply -k deploy/k8s
+
+      - name: Run full scenario matrix (6 scenarios × 10 reps)
+        run: |
+          mkdir -p artifacts/weekly-benchmark
+          for SCENARIO in dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed; do
+            echo "=== Running scenario: $SCENARIO ==="
+            go run ./cmd/faultinject \
+              --scenario "$SCENARIO" \
+              --count 24 \
+              --out "artifacts/weekly-benchmark/${SCENARIO}_raw.jsonl"
+            go run ./cmd/faultreplay \
+              --scenario "$SCENARIO" \
+              --count 24 \
+              --out "artifacts/weekly-benchmark/${SCENARIO}_replay.jsonl"
+            go run ./cmd/benchgen \
+              --out "artifacts/weekly-benchmark/${SCENARIO}" \
+              --scenario "$SCENARIO" \
+              --input "artifacts/weekly-benchmark/${SCENARIO}_replay.jsonl"
+          done
+
+      - name: Generate consolidated report
+        run: |
+          go run ./cmd/benchgen \
+            --out artifacts/weekly-benchmark/consolidated \
+            --scenario mixed_faults \
+            --input artifacts/weekly-benchmark/mixed_replay.jsonl
+
+      - name: Release-tag regression check
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          echo "Previous release tag: $PREV_TAG"
+          echo "Regression baseline: $PREV_TAG" >> artifacts/weekly-benchmark/regression_note.txt
+
+      - name: Upload weekly artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-benchmark-${{ github.run_number }}
+          path: artifacts/weekly-benchmark/
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: kind teardown
+        if: always()
+        run: make kind-down

@@ -547,29 +547,29 @@ gantt
     M0 Buildable repo + CI + kind          :done, m0, 2026-02-17, 2026-02-23
 
     section Demo
-    M1 Streaming RAG + baseline SLI        :active, m1, 2026-02-24, 2026-03-02
+    M1 Streaming RAG + baseline SLI        :done, m1, 2026-02-24, 2026-03-02
 
     section Signals
-    M2 Six CO-RE signals · overhead ≤5%    :m2, 2026-03-03, 2026-03-16
+    M2 Six CO-RE signals · overhead ≤5%    :done, m2, 2026-03-03, 2026-03-16
 
     section Correlation
-    M3 Precision ≥0.90 · Recall ≥0.85     :m3, 2026-03-17, 2026-03-23
+    M3 Precision ≥0.90 · Recall ≥0.85     :done, m3, 2026-03-17, 2026-03-23
 
     section Incident Lab
-    M4 Six scenarios · dashboards · alerts :m4, 2026-03-24, 2026-03-30
+    M4 Six scenarios · dashboards · alerts :done, m4, 2026-03-24, 2026-03-30
 
     section Release
-    M5 v0.2 GA · overhead ≤3% · SBOM      :m5, 2026-03-31, 2026-04-13
+    M5 v0.2 GA · overhead ≤3% · SBOM      :active, m5, 2026-03-31, 2026-04-13
 ```
 
 | Milestone | Status | Key Deliverables |
 |---|---|---|
 | M0: Bootstrap | Complete | Buildable repo, kind cluster, CI pipeline, DaemonSet heartbeat |
-| M1: Demo + OTel | In progress | Streaming RAG demo, baseline TTFT/tokens-per-second, first correlated signal |
-| M2: Signals v1 | Planned | Six CO-RE signals, schema validation, safety toggles, overhead ≤ 5% |
-| M3: Correlation | Planned | Production correlator, retrieval decomposition, retry storm detection |
-| M4: Incident Lab | Planned | Six deterministic scenarios, Grafana dashboards, alerting rules |
-| M5: Bench + Release | Planned | v0.2 GA, overhead ≤ 3%, signed artifacts with SBOM and provenance |
+| M1: Demo + OTel | Complete | Streaming RAG demo, OTLP export, baseline TTFT/tokens-per-second, 17-panel Grafana dashboards |
+| M2: Signals v1 | Complete | Six CO-RE eBPF probes, ring buffer consumer, probe manager, BCC fallback, safety integration |
+| M3: Correlation | Complete | Production correlator (P=1.00, R=1.00), retrieval decomposition, retry storm detection, 55 labeled pairs |
+| M4: Incident Lab | Complete | Six deterministic scenarios, Prometheus alerting rules, declarative scenario YAMLs |
+| M5: Bench + Release | In progress | v0.2 GA, overhead ≤ 3%, release workflow with SBOM, checksums, and provenance |
 
 ## Documentation
 

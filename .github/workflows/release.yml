@@ -1,0 +1,79 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Build and validate
+        run: |
+          make build
+          make test
+          make correlation-gate
+          make schema-validate
+
+      - name: Build release binaries
+        run: |
+          mkdir -p dist
+          for CMD in agent collector attributor benchgen faultreplay faultinject correlationeval sloctl loadgen; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
+              -o "dist/${CMD}-linux-amd64" "./cmd/${CMD}"
+            CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 \
+              go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
+              -o "dist/${CMD}-darwin-arm64" "./cmd/${CMD}"
+          done
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums-sha256.txt
+
+      - name: Generate SBOM
+        run: |
+          go install github.com/anchore/syft/cmd/syft@latest 2>/dev/null || true
+          if command -v syft >/dev/null 2>&1; then
+            syft dir:. -o spdx-json > dist/sbom-spdx.json
+          else
+            echo '{"comment":"syft not available, SBOM skipped"}' > dist/sbom-spdx.json
+          fi
+
+      - name: Generate provenance
+        run: |
+          cat > dist/provenance.json <<PROV
+          {
+            "version": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner": "${{ runner.os }}/${{ runner.arch }}",
+            "go_version": "$(go version | awk '{print $3}')",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}"
+          }
+          PROV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*-linux-amd64
+            dist/*-darwin-arm64
+            dist/checksums-sha256.txt
+            dist/sbom-spdx.json
+            dist/provenance.json

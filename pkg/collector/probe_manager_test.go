@@ -54,8 +54,12 @@ func TestProbeManagerRegisterBCCRejects(t *testing.T) {
 
 func TestProbeManagerDisableProbe(t *testing.T) {
 	pm := NewProbeManager("core_full", testCoreSignals, testDisableOrder, nil, nil)
-	pm.Register(&ProbeSpec{Signal: "dns_latency_ms"})
-	pm.Register(&ProbeSpec{Signal: "tcp_retransmits_total"})
+	if err := pm.Register(&ProbeSpec{Signal: "dns_latency_ms"}); err != nil {
+		t.Fatalf("register dns: %v", err)
+	}
+	if err := pm.Register(&ProbeSpec{Signal: "tcp_retransmits_total"}); err != nil {
+		t.Fatalf("register tcp: %v", err)
+	}
 
 	ok := pm.DisableProbe("dns_latency_ms")
 	if !ok {
@@ -75,9 +79,15 @@ func TestProbeManagerDisableProbe(t *testing.T) {
 
 func TestProbeManagerDetachAll(t *testing.T) {
 	pm := NewProbeManager("core_full", testCoreSignals, testDisableOrder, nil, nil)
-	pm.Register(&ProbeSpec{Signal: "dns_latency_ms"})
-	pm.Register(&ProbeSpec{Signal: "tcp_retransmits_total"})
-	pm.Register(&ProbeSpec{Signal: "runqueue_delay_ms"})
+	if err := pm.Register(&ProbeSpec{Signal: "dns_latency_ms"}); err != nil {
+		t.Fatalf("register dns: %v", err)
+	}
+	if err := pm.Register(&ProbeSpec{Signal: "tcp_retransmits_total"}); err != nil {
+		t.Fatalf("register tcp: %v", err)
+	}
+	if err := pm.Register(&ProbeSpec{Signal: "runqueue_delay_ms"}); err != nil {
+		t.Fatalf("register runqueue: %v", err)
+	}
 
 	pm.DetachAll()
 
