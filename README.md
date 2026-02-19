@@ -307,6 +307,13 @@ graph LR
     style WEEKLY fill:#d1e7dd,stroke:#198754
 ```
 
+Workflow map:
+- `ci.yml`: fast PR build/lint/unit/schema/correlation/fault-smoke checks on GitHub-hosted runners.
+- `pr-privileged-ebpf-smoke.yml`: merge-oriented privileged smoke path on `self-hosted,linux,ebpf` (kind deploy, OTLP smoke, RAG smoke, eBPF smoke).
+- `nightly-ebpf-integration.yml`: scheduled privileged integration with synthetic fallback when no runner is online.
+- `weekly-benchmark.yml`: full matrix benchmark and M5 GA gates (B5/D3/E3) on self-hosted runner with fallback path.
+- `release.yml`: tag-driven binary packaging, checksums, SBOM, and provenance publication.
+
 ## Key Results
 
 Results from the current benchmark suite using controlled fault injection on a 3-node kind cluster:
@@ -333,7 +340,7 @@ Benchmark artifacts (confusion matrices, predictions, provenance) are published 
 - **Telemetry**: OpenTelemetry SDK, OTLP/HTTP exporters, Prometheus client
 - **Observability**: Grafana, Prometheus, Tempo, OpenTelemetry Collector
 - **Schemas**: JSON Schema for contract stability (v1 SLO events, v1 incident attributions, v1alpha1 probe events)
-- **CI/CD**: GitHub Actions with runner preflight, full privileged paths on self-hosted `linux+ebpf`, and synthetic fallback paths when no such runner is online
+- **CI/CD**: GitHub Actions with PR privileged smoke on self-hosted `linux+ebpf`, runner preflight routing, and synthetic fallback paths for scheduled runs when no such runner is online
 
 ## Quick Start
 

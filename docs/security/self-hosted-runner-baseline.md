@@ -34,8 +34,9 @@ Implementation reference for the single-runner fast-evidence setup:
 - Enforce audit logging for privileged job startup, teardown, and artifact upload actions.
 
 ## Workflow Requirements
-- PR CI on GitHub-hosted runners must not require privileged eBPF execution.
-- Privileged jobs run only on trusted branches and scheduled workflows.
+- Standard PR CI on GitHub-hosted runners must not require privileged eBPF execution.
+- Dedicated PR privileged smoke workflow runs on self-hosted `linux+ebpf` runners for trusted (same-repo) pull requests.
+- Fork pull requests must not execute privileged self-hosted jobs.
 - Weekly full benchmark jobs must publish provenance metadata for traceability.
 - Nightly and weekly workflows must execute runner preflight and switch to synthetic fallback mode when no online `self-hosted+linux+ebpf` runner is available.
 

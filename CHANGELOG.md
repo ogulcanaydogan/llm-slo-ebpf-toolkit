@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.2.0-rc.2 - 2026-02-19
+- Stabilized nightly privileged integration by replacing a terminating-pod-sensitive RAG readiness wait with deployment availability checks and safer port-forward cleanup.
+- Hardened OTLP smoke and agent deployment path in CI by enforcing local image override usage and metrics-based ingestion gating.
+- Added host-network DNS fix for the agent DaemonSet via `dnsPolicy: ClusterFirstWithHostNet`.
+- Added `pr-privileged-ebpf-smoke` workflow to execute merge-oriented self-hosted eBPF smoke on trusted pull requests, with explicit fork PR isolation.
+- Updated security and README CI documentation to reflect privileged PR smoke and runner-routing behavior.
+
 ## v0.2.0-rc.1 - 2026-02-18
 - Rewrote README with full architecture diagrams, visual Mermaid explanations, competitive positioning quadrant, sequence diagram for TTFT attribution, and Gantt roadmap.
 - Expanded Grafana dashboards from 1 panel to 17 panels across 3 dashboards (SLO Overview, Kernel Correlation, Incident Lab) with thresholds, units, and descriptions.

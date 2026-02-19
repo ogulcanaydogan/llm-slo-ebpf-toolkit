@@ -1,0 +1,140 @@
+name: pr-privileged-ebpf-smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  runner-preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      has_ebpf_runner: ${{ steps.detect.outputs.has_ebpf_runner }}
+      runner_count: ${{ steps.detect.outputs.runner_count }}
+      reason: ${{ steps.detect.outputs.reason }}
+      trusted_pr: ${{ steps.trust.outputs.trusted_pr }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: trust
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "trusted_pr=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
+            echo "trusted_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "trusted_pr=false" >> "$GITHUB_OUTPUT"
+          fi
+      - id: detect
+        env:
+          RUNNER_STATUS_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./scripts/ci/check_ebpf_runner.sh
+
+  privileged-kind-smoke:
+    needs: runner-preflight
+    if: |
+      needs.runner-preflight.outputs.trusted_pr == 'true' &&
+      needs.runner-preflight.outputs.has_ebpf_runner == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: [self-hosted, linux, ebpf]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Build and unit tests
+        run: |
+          make build
+          make test
+          make correlation-gate
+          make schema-validate
+      - name: Build local demo images for kind
+        run: |
+          docker build -t llm-slo-agent:ci -f cmd/agent/Dockerfile .
+          docker build -t llm-slo-rag-service:ci -f demo/rag-service/Dockerfile .
+      - name: kind smoke and deploy baseline
+        run: |
+          make kind-up
+          kind load docker-image --name llm-slo-lab llm-slo-agent:ci llm-slo-rag-service:ci
+          kubectl apply -k deploy/observability
+          kubectl apply -k deploy/k8s
+          kubectl -n llm-slo-system set image daemonset/llm-slo-agent agent=llm-slo-agent:ci
+          kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
+      - name: OTLP observability smoke
+        run: AGENT_IMAGE=llm-slo-agent:ci make kind-observability-smoke
+      - name: RAG demo service smoke
+        run: |
+          kubectl apply -k demo/rag-service/k8s
+          kubectl -n observability set image deployment/rag-service rag-service=llm-slo-rag-service:ci
+          kubectl -n observability rollout status deployment/rag-service --timeout=180s
+          kubectl -n observability wait --for=condition=available deployment/rag-service --timeout=120s
+          kubectl -n observability get pods -l app=rag-service -o wide
+          kubectl -n observability port-forward svc/rag-service 18080:8080 &
+          PF_PID=$!
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+          sleep 5
+          RESP=$(curl -sS --max-time 30 http://localhost:18080/chat \
+            -H 'content-type: application/json' \
+            -d '{"prompt":"test","profile":"rag_medium","seed":42,"max_tokens":5,"stream":false}')
+          echo "$RESP"
+          echo "$RESP" | grep -q '"ttft_ms"' || { echo "FAIL: missing ttft_ms"; exit 1; }
+          echo "$RESP" | grep -q '"tokens_per_sec"' || { echo "FAIL: missing tokens_per_sec"; exit 1; }
+          echo "$RESP" | grep -q '"trace_id"' || { echo "FAIL: missing trace_id"; exit 1; }
+      - name: Privileged eBPF smoke
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            make ebpf-smoke
+          else
+            echo "skipping ebpf-smoke: runner is not root"
+          fi
+      - name: Upload privileged smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-privileged-smoke-artifacts
+          path: |
+            artifacts/collector
+            artifacts/correlation
+            /tmp/collector-metrics.txt
+            /tmp/agent-metrics.txt
+            /tmp/collector.log
+            /tmp/agent.log
+          if-no-files-found: warn
+      - name: kind teardown
+        if: always()
+        run: make kind-down
+
+  privileged-runner-required:
+    needs: runner-preflight
+    if: |
+      needs.runner-preflight.outputs.trusted_pr == 'true' &&
+      needs.runner-preflight.outputs.has_ebpf_runner != 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when privileged runner is unavailable
+        run: |
+          echo "::error::No online self-hosted linux+ebpf runner available. Privileged PR smoke gate cannot run."
+          echo "runner_count=${{ needs.runner-preflight.outputs.runner_count }}"
+          echo "reason=${{ needs.runner-preflight.outputs.reason }}"
+          exit 1
+
+  fork-pr-no-privileged:
+    needs: runner-preflight
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.runner-preflight.outputs.trusted_pr != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip privileged smoke for fork PRs
+        run: |
+          echo "Fork pull request detected; privileged self-hosted execution is intentionally skipped."
