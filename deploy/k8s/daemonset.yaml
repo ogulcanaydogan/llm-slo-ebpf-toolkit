@@ -104,7 +104,7 @@ spec:
                   name: llm-slo-agent-config
                   key: enable_real_probe_metrics
           command:
-            - /agent
+            - /app/agent
           args:
             - "--scenario=$(CHAOS_SCENARIO)"
             - "--count=$(SAMPLE_COUNT)"
