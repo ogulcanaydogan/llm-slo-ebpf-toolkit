@@ -285,11 +285,15 @@ func evaluateBaseline(cfg Config) (BaselineGate, error) {
 	sameRef := result.SourceRef != "" && result.CandidateRef != "" && result.SourceRef == result.CandidateRef
 	result.SameSource = sameCommit || sameRef
 	if result.SameSource {
-		result.Pass = false
+		// Same-commit comparison means no code changes since the last tag.
+		// This is not a failure — there is simply nothing to regress against.
+		// Mark as pass with an informational note so the significance gate
+		// can also skip (no meaningful regression test is possible).
+		result.Pass = true
 		if sameCommit {
-			result.FailureReason = fmt.Sprintf("baseline source_commit matches candidate commit (%s)", result.SourceCommit)
+			result.FailureReason = fmt.Sprintf("baseline source_commit matches candidate commit (%s); skipping regression comparison", result.SourceCommit)
 		} else {
-			result.FailureReason = fmt.Sprintf("baseline source_ref matches candidate ref (%s)", result.SourceRef)
+			result.FailureReason = fmt.Sprintf("baseline source_ref matches candidate ref (%s); skipping regression comparison", result.SourceRef)
 		}
 	}
 

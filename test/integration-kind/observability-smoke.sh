@@ -16,11 +16,18 @@ for tool in kind kubectl; do
 done
 
 cd "$ROOT_DIR"
-make kind-up
-kubectl apply -k deploy/observability
-kubectl apply -k deploy/k8s
-if [[ -n "${AGENT_IMAGE:-}" ]]; then
-  kubectl -n llm-slo-system set image daemonset/llm-slo-agent "agent=${AGENT_IMAGE}"
+
+# If a kind cluster already exists (e.g. nightly CI pre-deploys), skip cluster
+# creation and manifest application — go straight to the smoke assertions.
+if kind get clusters 2>/dev/null | grep -q "llm-slo-lab"; then
+  echo "kind cluster 'llm-slo-lab' already exists, skipping setup"
+else
+  make kind-up
+  kubectl apply -k deploy/observability
+  kubectl apply -k deploy/k8s
+  if [[ -n "${AGENT_IMAGE:-}" ]]; then
+    kubectl -n llm-slo-system set image daemonset/llm-slo-agent "agent=${AGENT_IMAGE}"
+  fi
 fi
 
 kubectl -n observability rollout status deployment/otel-collector --timeout=180s

@@ -68,6 +68,9 @@ func main() {
 	fmt.Printf("summary json: %s\n", *outJSON)
 	fmt.Printf("summary md: %s\n", *outMD)
 	fmt.Printf("B5 overhead node p95 max: %.4f%% on %s (limit %.4f%%)\n", summary.Overhead.MaxNodeP95Pct, summary.Overhead.MaxNodeP95Node, summary.Overhead.ThresholdPct)
+	if summary.Baseline.SameSource {
+		fmt.Printf("note: %s\n", summary.Baseline.FailureReason)
+	}
 	if !summary.Pass {
 		for _, failure := range summary.Failures {
 			fmt.Printf("- %s\n", failure)
