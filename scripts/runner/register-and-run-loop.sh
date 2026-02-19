@@ -8,13 +8,17 @@ set -euo pipefail
 # Optional env vars:
 #   RUNNER_HOME=/opt/actions-runner
 #   RUNNER_NAME_PREFIX=llm-slo-ebpf
-#   RUNNER_LABELS=self-hosted,linux,ebpf
+#   RUNNER_DEFAULT_LABELS=self-hosted,linux,ebpf
+#   RUNNER_EXTRA_LABELS=kernel-6-8
+#   APPEND_KERNEL_VERSION_LABEL=true
 
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-}"
 RUNNER_PAT_PARAMETER_NAME="${RUNNER_PAT_PARAMETER_NAME:-/llm-slo/github/runner_pat}"
 RUNNER_HOME="${RUNNER_HOME:-/opt/actions-runner}"
 RUNNER_NAME_PREFIX="${RUNNER_NAME_PREFIX:-llm-slo-ebpf}"
-RUNNER_LABELS="${RUNNER_LABELS:-self-hosted,linux,ebpf}"
+RUNNER_DEFAULT_LABELS="${RUNNER_DEFAULT_LABELS:-self-hosted,linux,ebpf}"
+RUNNER_EXTRA_LABELS="${RUNNER_EXTRA_LABELS:-}"
+APPEND_KERNEL_VERSION_LABEL="${APPEND_KERNEL_VERSION_LABEL:-true}"
 RUNNER_PAT="${RUNNER_PAT:-}"
 
 if [[ -z "$GITHUB_REPOSITORY" ]]; then
@@ -46,6 +50,38 @@ fetch_token() {
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${pat}" \
     "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token" | json_token
+}
+
+kernel_label() {
+  local release major minor
+  release="$(uname -r 2>/dev/null || true)"
+  major="$(awk -F. '{print $1}' <<<"$release")"
+  minor="$(awk -F. '{print $2}' <<<"$release")"
+  if [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ ]]; then
+    echo "kernel-${major}-${minor}"
+  fi
+}
+
+build_labels() {
+  local labels extra auto
+  labels="${RUNNER_DEFAULT_LABELS:-self-hosted,linux,ebpf}"
+  extra="${RUNNER_EXTRA_LABELS:-}"
+  if [[ -n "$extra" ]]; then
+    labels="${labels},${extra}"
+  fi
+  if [[ "${APPEND_KERNEL_VERSION_LABEL}" == "true" ]]; then
+    auto="$(kernel_label)"
+    if [[ -n "$auto" ]]; then
+      labels="${labels},${auto}"
+    fi
+  fi
+  tr '[:upper:]' '[:lower:]' <<<"$labels" \
+    | awk -v RS=',' '{
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0);
+        if (length($0) && !seen[$0]++) {
+          out = out (out ? "," : "") $0
+        }
+      } END { print out }'
 }
 
 cleanup() {
@@ -82,6 +118,7 @@ while true; do
   fi
 
   RUNNER_NAME="${RUNNER_NAME_PREFIX}-$(hostname)-$(date +%s)"
+  RUNNER_LABELS="$(build_labels)"
 
   ./config.sh \
     --url "https://github.com/${GITHUB_REPOSITORY}" \

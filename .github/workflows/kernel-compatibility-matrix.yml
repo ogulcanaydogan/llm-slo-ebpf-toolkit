@@ -15,39 +15,31 @@ jobs:
     outputs:
       count_5_15: ${{ steps.detect.outputs.count_5_15 }}
       count_6_8: ${{ steps.detect.outputs.count_6_8 }}
+      reason: ${{ steps.detect.outputs.reason }}
     steps:
+      - uses: actions/checkout@v4
       - id: detect
         env:
           RUNNER_STATUS_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          token="${RUNNER_STATUS_TOKEN:-${GITHUB_TOKEN:-}}"
-          if [[ -z "$token" ]]; then
-            echo "count_5_15=0" >> "$GITHUB_OUTPUT"
-            echo "count_6_8=0" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          mkdir -p artifacts/compatibility
+          ./scripts/ci/check_runner_profiles.sh \
+            --profiles kernel-5-15,kernel-6-8 \
+            --out artifacts/compatibility/runner-discovery.json
 
-          api_url="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners?per_page=100"
-          tmp_body="$(mktemp)"
-          http_code="$(curl -sS -o "$tmp_body" -w "%{http_code}" \
-            -H "Authorization: Bearer ${token}" \
-            -H "Accept: application/vnd.github+json" \
-            "$api_url" || true)"
-          if [[ "$http_code" != "200" ]]; then
-            echo "runner API unavailable (http=${http_code:-error}); marking profiles unavailable"
-            echo "count_5_15=0" >> "$GITHUB_OUTPUT"
-            echo "count_6_8=0" >> "$GITHUB_OUTPUT"
-            rm -f "$tmp_body"
-            exit 0
-          fi
-          body="$(cat "$tmp_body")"
-          rm -f "$tmp_body"
-          count_5_15="$(jq '[.runners[] | select(.status=="online") | select(any(.labels[]?; (.name|ascii_downcase)=="self-hosted")) | select(any(.labels[]?; (.name|ascii_downcase)=="linux")) | select(any(.labels[]?; (.name|ascii_downcase)=="ebpf")) | select(any(.labels[]?; (.name|ascii_downcase)=="kernel-5-15"))] | length' <<<"$body")"
-          count_6_8="$(jq '[.runners[] | select(.status=="online") | select(any(.labels[]?; (.name|ascii_downcase)=="self-hosted")) | select(any(.labels[]?; (.name|ascii_downcase)=="linux")) | select(any(.labels[]?; (.name|ascii_downcase)=="ebpf")) | select(any(.labels[]?; (.name|ascii_downcase)=="kernel-6-8"))] | length' <<<"$body")"
+          count_5_15="$(jq -r '.profiles["kernel-5-15"].count // 0' artifacts/compatibility/runner-discovery.json)"
+          count_6_8="$(jq -r '.profiles["kernel-6-8"].count // 0' artifacts/compatibility/runner-discovery.json)"
+          reason="$(jq -r '.reason // "unknown"' artifacts/compatibility/runner-discovery.json)"
+
           echo "count_5_15=${count_5_15}" >> "$GITHUB_OUTPUT"
           echo "count_6_8=${count_6_8}" >> "$GITHUB_OUTPUT"
+          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-compat-runner-discovery
+          path: artifacts/compatibility/runner-discovery.json
 
   compat-kernel-5-15:
     needs: runner-discovery
@@ -79,7 +71,7 @@ jobs:
           {
             "profile": "kernel-5-15",
             "status": "unavailable",
-            "detail": "no online self-hosted linux+ebpf runner with label kernel-5-15",
+            "detail": "no online self-hosted linux+ebpf runner with label kernel-5-15 (reason: ${{ needs.runner-discovery.outputs.reason }})",
             "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
@@ -118,7 +110,7 @@ jobs:
           {
             "profile": "kernel-6-8",
             "status": "unavailable",
-            "detail": "no online self-hosted linux+ebpf runner with label kernel-6-8",
+            "detail": "no online self-hosted linux+ebpf runner with label kernel-6-8 (reason: ${{ needs.runner-discovery.outputs.reason }})",
             "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF

@@ -1,21 +1,44 @@
+output "instance_ids" {
+  description = "EC2 instance IDs for runner hosts keyed by profile"
+  value       = { for profile, instance in aws_instance.runner : profile => instance.id }
+}
+
+output "instance_private_ips" {
+  description = "Private IP addresses for runner hosts keyed by profile"
+  value       = { for profile, instance in aws_instance.runner : profile => instance.private_ip }
+}
+
+output "ssm_start_sessions" {
+  description = "SSM session commands keyed by profile"
+  value = {
+    for profile, instance in aws_instance.runner :
+    profile => "aws ssm start-session --target ${instance.id} --region ${var.aws_region}"
+  }
+}
+
 output "instance_id" {
-  description = "EC2 instance ID for the ephemeral runner host"
-  value       = aws_instance.runner.id
+  description = "Backward-compatible single instance ID (null when multiple profiles are defined)"
+  value       = length(aws_instance.runner) == 1 ? values(aws_instance.runner)[0].id : null
 }
 
 output "instance_private_ip" {
-  description = "Private IP address of the runner host"
-  value       = aws_instance.runner.private_ip
+  description = "Backward-compatible single private IP (null when multiple profiles are defined)"
+  value       = length(aws_instance.runner) == 1 ? values(aws_instance.runner)[0].private_ip : null
 }
 
 output "ssm_start_session" {
-  description = "Command to open an SSM shell session"
-  value       = "aws ssm start-session --target ${aws_instance.runner.id} --region ${var.aws_region}"
+  description = "Backward-compatible single SSM command (null when multiple profiles are defined)"
+  value       = length(aws_instance.runner) == 1 ? "aws ssm start-session --target ${values(aws_instance.runner)[0].id} --region ${var.aws_region}" : null
 }
 
 output "validation_runner_labels" {
-  description = "Expected runner labels in GitHub"
-  value       = ["self-hosted", "linux", "ebpf"]
+  description = "Expected baseline runner labels in GitHub"
+  value       = concat(var.runner_default_labels, var.append_kernel_version_label ? ["kernel-x-y (auto)"] : [])
+}
+
+output "runner_profiles" {
+  description = "Configured runner profiles"
+  value       = keys(aws_instance.runner)
 }
 
 output "validation_gh_command" {

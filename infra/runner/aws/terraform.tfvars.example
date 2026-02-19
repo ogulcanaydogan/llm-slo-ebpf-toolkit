@@ -3,3 +3,20 @@ vpc_id             = "vpc-xxxxxxxx"
 subnet_id          = "subnet-xxxxxxxx"
 github_repository  = "ogulcanaydogan/LLM-SLO-eBPF-Toolkit"
 runner_name_prefix = "llm-slo-ebpf"
+
+# Optional: override baseline labels.
+# runner_default_labels = ["self-hosted", "linux", "ebpf"]
+
+# Optional: provision multiple dedicated kernel-profile runners.
+# runner_profiles = {
+#   kernel_5_15 = {
+#     subnet_id    = "subnet-xxxxxxxx"
+#     ami_id       = "ami-xxxxxxxx" # image pinned to 5.15 kernel
+#     extra_labels = ["kernel-5-15"]
+#   }
+#   kernel_6_8 = {
+#     subnet_id    = "subnet-yyyyyyyy"
+#     ami_id       = "ami-yyyyyyyy" # image pinned to 6.8 kernel
+#     extra_labels = ["kernel-6-8"]
+#   }
+# }

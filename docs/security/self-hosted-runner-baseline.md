@@ -2,10 +2,11 @@
 
 Scope: nightly and weekly Linux jobs that require privileged eBPF and kind integration.
 
-Implementation reference for the single-runner fast-evidence setup:
+Implementation references:
 - `infra/runner/aws/main.tf`
 - `infra/runner/aws/cloud-init.yaml`
 - `scripts/runner/register-and-run-loop.sh`
+- `scripts/ci/check_runner_profiles.sh`
 
 ## Required Controls
 1. Ephemeral runners only.
@@ -53,5 +54,14 @@ Expected outcome:
 - labels include `self-hosted`, `linux`, and `ebpf`
 
 Kernel matrix extension:
-- Add profile labels (for example `kernel-5-15`, `kernel-6-8`) to dedicated runners.
+- Provision dedicated profile runners (for example `kernel-5-15`, `kernel-6-8`) via `runner_profiles` in `infra/runner/aws/terraform.tfvars`.
+- The runner loop auto-appends `kernel-x-y` from host kernel for baseline visibility.
+- Validate profile availability with:
+
+```bash
+RUNNER_STATUS_TOKEN="$(gh auth token)" \
+GITHUB_REPOSITORY=ogulcanaydogan/LLM-SLO-eBPF-Toolkit \
+./scripts/ci/check_runner_profiles.sh --profiles kernel-5-15,kernel-6-8 --out /tmp/runner-profiles.json
+```
+
 - Run `.github/workflows/kernel-compatibility-matrix.yml` to publish compatibility results to `docs/compatibility.md` artifacts.

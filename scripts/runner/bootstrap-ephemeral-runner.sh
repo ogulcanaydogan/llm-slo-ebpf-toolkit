@@ -8,6 +8,8 @@ set -euo pipefail
 # Optional env vars:
 #   RUNNER_VERSION=2.323.0
 #   RUNNER_HOME=/opt/actions-runner
+#   RUNNER_DEFAULT_LABELS=self-hosted,linux,ebpf
+#   RUNNER_EXTRA_LABELS=kernel-6-8
 
 if ! command -v aws >/dev/null 2>&1; then
   echo "aws cli is required"

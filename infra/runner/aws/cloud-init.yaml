@@ -9,7 +9,9 @@ write_files:
       RUNNER_VERSION=${runner_version}
       RUNNER_HOME=/opt/actions-runner
       RUNNER_NAME_PREFIX=${runner_name_prefix}
-      RUNNER_LABELS=self-hosted,linux,ebpf
+      RUNNER_DEFAULT_LABELS=${runner_default_labels_csv}
+      RUNNER_EXTRA_LABELS=${runner_extra_labels_csv}
+      APPEND_KERNEL_VERSION_LABEL=${append_kernel_version_label}
 
   - path: /opt/actions-runner/bootstrap-ephemeral-runner.sh
     permissions: "0755"
@@ -55,6 +57,38 @@ write_files:
         return 0
       }
 
+      kernel_label() {
+        local release major minor
+        release="$(uname -r 2>/dev/null || true)"
+        major="$(awk -F. '{print $1}' <<<"$release")"
+        minor="$(awk -F. '{print $2}' <<<"$release")"
+        if [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ ]]; then
+          echo "kernel-${major}-${minor}"
+        fi
+      }
+
+      build_labels() {
+        local labels extra auto
+        labels="${RUNNER_DEFAULT_LABELS:-self-hosted,linux,ebpf}"
+        extra="${RUNNER_EXTRA_LABELS:-}"
+        if [[ -n "$extra" ]]; then
+          labels="${labels},${extra}"
+        fi
+        if [[ "${APPEND_KERNEL_VERSION_LABEL:-true}" == "true" ]]; then
+          auto="$(kernel_label)"
+          if [[ -n "$auto" ]]; then
+            labels="${labels},${auto}"
+          fi
+        fi
+        tr '[:upper:]' '[:lower:]' <<<"$labels" \
+          | awk -v RS=',' '{
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0);
+              if (length($0) && !seen[$0]++) {
+                out = out (out ? "," : "") $0
+              }
+            } END { print out }'
+      }
+
       cleanup() {
         set +e
         if [[ -f .runner ]]; then
@@ -92,6 +126,7 @@ write_files:
         fi
 
         RUNNER_NAME="$RUNNER_NAME_PREFIX-$(hostname)-$(date +%s)"
+        RUNNER_LABELS="$(build_labels)"
         ./config.sh \
           --url "https://github.com/$GITHUB_REPOSITORY" \
           --token "$TOKEN" \

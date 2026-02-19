@@ -12,6 +12,7 @@ variable "vpc_id" {
 variable "subnet_id" {
   description = "Subnet ID where the runner instance will be created"
   type        = string
+  default     = null
 }
 
 variable "github_repository" {
@@ -42,6 +43,31 @@ variable "runner_name_prefix" {
   description = "Prefix for ephemeral runner registrations"
   type        = string
   default     = "llm-slo-ebpf"
+}
+
+variable "runner_default_labels" {
+  description = "Default labels added to every runner registration"
+  type        = list(string)
+  default     = ["self-hosted", "linux", "ebpf"]
+}
+
+variable "append_kernel_version_label" {
+  description = "When true, runner auto-appends kernel-x-y label based on uname -r"
+  type        = bool
+  default     = true
+}
+
+variable "runner_profiles" {
+  description = "Optional per-profile runner configuration map. If empty, one default runner is created from top-level variables."
+  type = map(object({
+    subnet_id          = optional(string)
+    instance_type      = optional(string)
+    root_volume_gb     = optional(number)
+    ami_id             = optional(string)
+    runner_name_prefix = optional(string)
+    extra_labels       = optional(list(string))
+  }))
+  default = {}
 }
 
 variable "runner_version" {

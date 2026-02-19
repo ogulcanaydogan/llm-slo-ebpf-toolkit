@@ -22,7 +22,9 @@
 	chaos-matrix \
 	chaos-agent-otlp \
 	correlation-gate \
-	m5-gate
+	m5-gate \
+	runner-validate \
+	runner-profile-discovery
 
 SCHEMA_FILES := \
 	docs/contracts/v1/slo-event.schema.json \
@@ -154,3 +156,16 @@ m5-gate:
 		--min-cliffs-delta $(M5_MIN_CLIFFS_DELTA) \
 		--out-json $(M5_OUT_JSON) \
 		--out-md $(M5_OUT_MD)
+
+runner-validate:
+	gh api repos/$${GITHUB_REPOSITORY:-ogulcanaydogan/LLM-SLO-eBPF-Toolkit}/actions/runners \
+		--jq '.runners[] | {name,status,busy,labels:[.labels[].name]}'
+
+runner-profile-discovery:
+	mkdir -p artifacts/compatibility
+	RUNNER_STATUS_TOKEN="$${RUNNER_STATUS_TOKEN:-$${GITHUB_TOKEN:-$$(gh auth token 2>/dev/null || true)}}" \
+	GITHUB_REPOSITORY="$${GITHUB_REPOSITORY:-ogulcanaydogan/LLM-SLO-eBPF-Toolkit}" \
+	./scripts/ci/check_runner_profiles.sh \
+		--profiles "$${RUNNER_PROFILES:-kernel-5-15,kernel-6-8}" \
+		--out artifacts/compatibility/runner-discovery.local.json
+	jq . artifacts/compatibility/runner-discovery.local.json
