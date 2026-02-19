@@ -2,16 +2,16 @@
 
 This page tracks compatibility checks for privileged eBPF execution across supported runner kernel profiles.
 
-- Generated at (UTC): 2026-02-19T20:39:57Z
-- Source run: `manual`
+- Generated at (UTC): 2026-02-19T20:49:48Z
+- Source run: `22199345650`
 - Report source directory: `artifacts/compatibility`
 
 ## Matrix
 
 | Profile Label | Availability | Kernel Release | BTF | `sloctl prereq` | `agent --probe-smoke` |
 |---|---|---|---|---|---|
-| `kernel-5-15` | n/a | `n/a` | `n/a` | `n/a` | `n/a` |
-| `kernel-6-8` | n/a | `n/a` | `n/a` | `n/a` | `n/a` |
+| `kernel-5-15` | unavailable | `n/a` | `n/a` | `n/a` | `n/a` |
+| `kernel-6-8` | unavailable | `n/a` | `n/a` | `n/a` | `n/a` |
 
 ## Interpretation
 

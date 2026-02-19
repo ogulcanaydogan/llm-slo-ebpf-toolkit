@@ -10,11 +10,17 @@ mkdir -p "$(dirname "$OUT_FILE")"
 read_field() {
   local file="$1"
   local expr="$2"
+  local value
   if [[ ! -f "$file" ]]; then
     echo "n/a"
     return 0
   fi
-  jq -r "$expr" "$file" 2>/dev/null || echo "n/a"
+  value="$(jq -r "$expr" "$file" 2>/dev/null || true)"
+  if [[ -z "$value" || "$value" == "null" ]]; then
+    echo "n/a"
+    return 0
+  fi
+  echo "$value"
 }
 
 render_row() {
