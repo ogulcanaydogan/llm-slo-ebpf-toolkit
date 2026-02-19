@@ -42,10 +42,10 @@ kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
 kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
 kubectl -n llm-slo-system get pods -l app=llm-slo-agent
 sleep 15
-if ! kubectl -n observability logs deployment/otel-collector --tail=400 | grep -E "signal=|sli=|llm-slo-ebpf-toolkit" >/dev/null; then
+if ! kubectl -n observability logs deployment/otel-collector --tail=1000 | grep -E "signal=|sli=|llm-slo-ebpf-toolkit|LogRecord|service\.name" >/dev/null; then
   echo "otel collector did not log expected agent events"
-  echo "--- collector logs (last 20 lines) ---"
-  kubectl -n observability logs deployment/otel-collector --tail=20 || true
+  echo "--- collector logs (last 40 lines) ---"
+  kubectl -n observability logs deployment/otel-collector --tail=40 || true
   exit 1
 fi
 

@@ -16,7 +16,7 @@ data:
       batch: {}
     exporters:
       debug:
-        verbosity: basic
+        verbosity: detailed
       otlp/tempo:
         endpoint: tempo.observability.svc.cluster.local:4317
         tls:
