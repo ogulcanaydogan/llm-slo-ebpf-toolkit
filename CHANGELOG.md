@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v0.2.0-rc.1 - 2026-02-18
 - Rewrote README with full architecture diagrams, visual Mermaid explanations, competitive positioning quadrant, sequence diagram for TTFT attribution, and Gantt roadmap.
 - Expanded Grafana dashboards from 1 panel to 17 panels across 3 dashboards (SLO Overview, Kernel Correlation, Incident Lab) with thresholds, units, and descriptions.
 - Added all 3 dashboards to K8s ConfigMap for automatic Grafana provisioning.
@@ -20,10 +22,13 @@
 - Added Prometheus alerting rules (`deploy/observability/prometheus-alerts.yaml`) with 5 alerts: TTFT budget burn, error rate, correlation degraded, agent heartbeat stale, overhead high.
 - Added 6 declarative incident scenario YAML definitions under `test/incident-lab/scenarios/`.
 - Added `cfs_throttled_ms` signal mapping to OTel correlator with `llm.ebpf.cpu.cfs_throttled_ms` semconv attribute.
-- Added weekly benchmark workflow (`.github/workflows/weekly-benchmark.yml`) running full 6-scenario matrix with 10 repetitions.
+- Added weekly benchmark workflow (`.github/workflows/weekly-benchmark.yml`) running full 6-scenario matrix with baseline comparison and M5 gate execution.
 - Added release workflow (`.github/workflows/release.yml`) with cross-compiled binaries, SHA-256 checksums, SBOM (syft), and provenance.
-- Updated go-no-go checklist with gate status for all M0–M4 milestones (all passing).
-- Updated README roadmap and milestone table to reflect M0–M4 complete, M5 in progress.
+- Added M5 gate tool (`cmd/m5gate`, `pkg/releasegate`) enforcing B5 overhead, D3 variance, and E3 significance gates.
+- Added AWS ephemeral eBPF runner infrastructure (`infra/runner/aws/`) with Terraform, SSM management, and HTTPS-only egress.
+- Added runner preflight detection (`scripts/ci/check_ebpf_runner.sh`) with automatic synthetic fallback in CI.
+- Added nightly and weekly CI conditional paths for self-hosted vs fallback execution.
+- Updated go-no-go checklist: all M0–M5 gates PASS or ENFORCED. RC decision: GO.
 
 ## v0.1.0-alpha.5 - 2026-02-18
 - Added OTLP/HTTP SLO event exporter (`pkg/otel/slo_event_exporter.go`) and wired `cmd/collector` + `cmd/agent` to support `--output otlp`.

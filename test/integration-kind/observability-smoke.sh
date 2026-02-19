@@ -19,6 +19,9 @@ cd "$ROOT_DIR"
 make kind-up
 kubectl apply -k deploy/observability
 kubectl apply -k deploy/k8s
+if [[ -n "${AGENT_IMAGE:-}" ]]; then
+  kubectl -n llm-slo-system set image daemonset/llm-slo-agent "agent=${AGENT_IMAGE}"
+fi
 
 kubectl -n observability rollout status deployment/otel-collector --timeout=180s
 kubectl -n observability rollout status deployment/prometheus --timeout=180s
