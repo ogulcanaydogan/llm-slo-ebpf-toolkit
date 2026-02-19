@@ -11,6 +11,7 @@ This Terraform stack provisions one or more EC2 hosts that run continuously re-r
   - `ssm:GetParameter` on one SecureString path (PAT)
 - cloud-init bootstrap for Docker + kind + kubectl + helm + runner service
   - bootstrap rewrites apt mirrors to `https://` so package install works with egress `443` only
+  - bootstrap installs AWS CLI v2 fallback when distro package is unavailable
   - runner labels include baseline `self-hosted,linux,ebpf` and can auto-append `kernel-x-y`
 
 ## Prerequisites

@@ -172,8 +172,10 @@ write_files:
 runcmd:
   - sed -i 's#http://#https://#g' /etc/apt/sources.list
   - bash -lc 'for f in /etc/apt/sources.list.d/*.list; do [ -f "$f" ] && sed -i "s#http://#https://#g" "$f"; done'
+  - bash -lc 'for f in /etc/apt/sources.list.d/*.sources; do [ -f "$f" ] && sed -i "s#http://#https://#g" "$f"; done'
   - apt-get update -y
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl jq unzip git docker.io awscli make
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl jq unzip git docker.io make
+  - bash -lc 'if ! command -v aws >/dev/null 2>&1; then curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip && rm -rf /tmp/aws && unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update; fi'
   - useradd -m -s /bin/bash runner || true
   - usermod -aG docker runner
   - mkdir -p /opt/actions-runner
