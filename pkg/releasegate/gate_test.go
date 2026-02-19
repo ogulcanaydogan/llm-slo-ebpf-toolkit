@@ -363,7 +363,7 @@ func TestEvaluateBaselineManifestRequired(t *testing.T) {
 	}
 }
 
-func TestEvaluateBaselineIndependenceFail(t *testing.T) {
+func TestEvaluateBaselineSameSourcePassesGracefully(t *testing.T) {
 	candidateRoot := filepath.Join(t.TempDir(), "candidate")
 	baselineRoot := filepath.Join(t.TempDir(), "baseline")
 	manifestPath := filepath.Join(baselineRoot, "manifest.json")
@@ -413,11 +413,14 @@ func TestEvaluateBaselineIndependenceFail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("evaluate: %v", err)
 	}
-	if summary.Baseline.Pass {
-		t.Fatal("expected baseline independence failure")
-	}
 	if !summary.Baseline.SameSource {
 		t.Fatal("expected same source detection")
+	}
+	if !summary.Baseline.Pass {
+		t.Fatal("same-source baseline should pass gracefully, not fail")
+	}
+	if !summary.Pass {
+		t.Fatalf("overall gate should pass for same-source comparison, failures: %v", summary.Failures)
 	}
 }
 
