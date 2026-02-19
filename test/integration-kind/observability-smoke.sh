@@ -37,9 +37,15 @@ kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
 
 ./scripts/chaos/set_agent_mode.sh mixed otlp
 
-sleep 8
+# Wait for the rolling restart triggered by set_agent_mode.sh to complete,
+# then give agents time to emit events to the OTel collector.
+kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
+kubectl -n llm-slo-system get pods -l app=llm-slo-agent
+sleep 15
 if ! kubectl -n observability logs deployment/otel-collector --tail=400 | grep -E "signal=|sli=|llm-slo-ebpf-toolkit" >/dev/null; then
   echo "otel collector did not log expected agent events"
+  echo "--- collector logs (last 20 lines) ---"
+  kubectl -n observability logs deployment/otel-collector --tail=20 || true
   exit 1
 fi
 
