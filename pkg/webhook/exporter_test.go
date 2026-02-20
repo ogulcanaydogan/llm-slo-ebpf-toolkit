@@ -85,7 +85,9 @@ func TestSendWithHMACSignature(t *testing.T) {
 func TestRetryOn5xx(t *testing.T) {
 	var attempts int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.ReadAll(r.Body)
+		if _, err := io.ReadAll(r.Body); err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
 		count := atomic.AddInt32(&attempts, 1)
 		if count < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -107,7 +109,9 @@ func TestRetryOn5xx(t *testing.T) {
 
 func TestFailAfterMaxRetries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.ReadAll(r.Body)
+		if _, err := io.ReadAll(r.Body); err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
@@ -169,7 +173,9 @@ func TestOpsgenieFormat(t *testing.T) {
 func TestNoRetryOn4xx(t *testing.T) {
 	var attempts int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.ReadAll(r.Body)
+		if _, err := io.ReadAll(r.Body); err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
 		atomic.AddInt32(&attempts, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	}))
