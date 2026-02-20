@@ -19,7 +19,7 @@ const defaultDatasetSeed = 42
 
 // GenerateArtifacts writes benchmark skeleton outputs with synthetic scenario input.
 func GenerateArtifacts(outDir string, scenario string, workloadProfile string) error {
-	return GenerateArtifactsWithInput(outDir, scenario, workloadProfile, "")
+	return GenerateArtifactsWithOptions(outDir, scenario, workloadProfile, "", attribution.AttributionModeBayes)
 }
 
 // GenerateArtifactsWithInput writes benchmark outputs using provided sample JSONL when set.
@@ -28,6 +28,18 @@ func GenerateArtifactsWithInput(
 	scenario string,
 	workloadProfile string,
 	inputPath string,
+) error {
+	return GenerateArtifactsWithOptions(outDir, scenario, workloadProfile, inputPath, attribution.AttributionModeBayes)
+}
+
+// GenerateArtifactsWithOptions writes benchmark outputs using provided sample
+// JSONL input and attribution mode.
+func GenerateArtifactsWithOptions(
+	outDir string,
+	scenario string,
+	workloadProfile string,
+	inputPath string,
+	attributionMode string,
 ) error {
 	startedAt := time.Now().UTC()
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
@@ -38,7 +50,7 @@ func GenerateArtifactsWithInput(
 	if err != nil {
 		return err
 	}
-	predictions := attribution.BuildAttributions(samples)
+	predictions := attribution.BuildAttributions(samples, attributionMode)
 
 	schemaPath := filepath.Join(projectRoot(), "docs", "contracts", "v1", "incident-attribution.schema.json")
 	for _, prediction := range predictions {
@@ -77,6 +89,7 @@ func GenerateArtifactsWithInput(
 		Project:         "llm-slo-ebpf-toolkit",
 		Scenario:        scenario,
 		WorkloadProfile: workloadProfile,
+		AttributionMode: attributionMode,
 		Environment: environmentSummary{
 			KubernetesVersion: "1.31",
 			KernelVersion:     "6.x",
@@ -91,6 +104,12 @@ func GenerateArtifactsWithInput(
 			CollectorCPUOverheadPct:     overhead[0].CollectorCPUPct,
 			CollectorMemoryOverheadMB:   overhead[0].CollectorMemoryMB,
 		},
+	}
+	if hasExpectedDomains(samples) {
+		partial := attribution.PartialAccuracy(samples, predictions)
+		coverage := attribution.CoverageAccuracy(samples, predictions, 0.10)
+		summary.Metrics.PartialAccuracy = &partial
+		summary.Metrics.CoverageAccuracy = &coverage
 	}
 	if err := writeJSON(filepath.Join(outDir, "attribution_summary.json"), summary); err != nil {
 		return err
@@ -121,6 +140,7 @@ type benchmarkSummary struct {
 	Project         string             `json:"project"`
 	Scenario        string             `json:"scenario"`
 	WorkloadProfile string             `json:"workload_profile"`
+	AttributionMode string             `json:"attribution_mode"`
 	Environment     environmentSummary `json:"environment"`
 	Metrics         metricSummary      `json:"metrics"`
 }
@@ -132,13 +152,15 @@ type environmentSummary struct {
 }
 
 type metricSummary struct {
-	DetectionDelayMedianSeconds float64 `json:"detection_delay_seconds_median"`
-	AttributionAccuracy         float64 `json:"attribution_accuracy"`
-	FalsePositiveRate           float64 `json:"false_positive_rate"`
-	FalseNegativeRate           float64 `json:"false_negative_rate"`
-	BurnRatePredictionError     float64 `json:"burn_rate_prediction_error"`
-	CollectorCPUOverheadPct     float64 `json:"collector_cpu_overhead_pct"`
-	CollectorMemoryOverheadMB   float64 `json:"collector_memory_overhead_mb"`
+	DetectionDelayMedianSeconds float64  `json:"detection_delay_seconds_median"`
+	AttributionAccuracy         float64  `json:"attribution_accuracy"`
+	PartialAccuracy             *float64 `json:"partial_accuracy,omitempty"`
+	CoverageAccuracy            *float64 `json:"coverage_accuracy,omitempty"`
+	FalsePositiveRate           float64  `json:"false_positive_rate"`
+	FalseNegativeRate           float64  `json:"false_negative_rate"`
+	BurnRatePredictionError     float64  `json:"burn_rate_prediction_error"`
+	CollectorCPUOverheadPct     float64  `json:"collector_cpu_overhead_pct"`
+	CollectorMemoryOverheadMB   float64  `json:"collector_memory_overhead_mb"`
 }
 
 type collectorOverheadRow struct {
@@ -360,22 +382,18 @@ func writeReportMarkdown(path string, summary benchmarkSummary) error {
 			"- Run ID: `%s`\n"+
 			"- Scenario: `%s`\n"+
 			"- Workload: `%s`\n"+
+			"- Attribution mode: `%s`\n"+
 			"- Attribution accuracy: `%.4f`\n"+
 			"- Detection delay median (s): `%.2f`\n"+
 			"- False positive rate: `%.4f`\n"+
 			"- False negative rate: `%.4f`\n"+
 			"- Burn-rate prediction error: `%.4f`\n"+
 			"- Collector CPU overhead (%%): `%.2f`\n"+
-			"- Collector memory overhead (MB): `%.2f`\n\n"+
-			"## Bundle\n\n"+
-			"- `incident_predictions.csv`\n"+
-			"- `confusion-matrix.csv`\n"+
-			"- `collector_overhead.csv`\n"+
-			"- `attribution_summary.json`\n"+
-			"- `provenance.json`\n",
+			"- Collector memory overhead (MB): `%.2f`\n",
 		summary.RunID,
 		summary.Scenario,
 		summary.WorkloadProfile,
+		summary.AttributionMode,
 		summary.Metrics.AttributionAccuracy,
 		summary.Metrics.DetectionDelayMedianSeconds,
 		summary.Metrics.FalsePositiveRate,
@@ -384,6 +402,20 @@ func writeReportMarkdown(path string, summary benchmarkSummary) error {
 		summary.Metrics.CollectorCPUOverheadPct,
 		summary.Metrics.CollectorMemoryOverheadMB,
 	)
+	if summary.Metrics.PartialAccuracy != nil && summary.Metrics.CoverageAccuracy != nil {
+		content += fmt.Sprintf(
+			"- Partial accuracy (multi-fault): `%.4f`\n"+
+				"- Coverage accuracy (multi-fault): `%.4f`\n",
+			*summary.Metrics.PartialAccuracy,
+			*summary.Metrics.CoverageAccuracy,
+		)
+	}
+	content += "\n## Bundle\n\n" +
+		"- `incident_predictions.csv`\n" +
+		"- `confusion-matrix.csv`\n" +
+		"- `collector_overhead.csv`\n" +
+		"- `attribution_summary.json`\n" +
+		"- `provenance.json`\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write report markdown: %w", err)
 	}
@@ -404,4 +436,13 @@ func getenvOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func hasExpectedDomains(samples []attribution.FaultSample) bool {
+	for _, sample := range samples {
+		if len(sample.ExpectedDomains) > 0 {
+			return true
+		}
+	}
+	return false
 }

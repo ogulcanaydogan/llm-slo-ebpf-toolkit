@@ -71,6 +71,26 @@
     "request_ids": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "fault_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain", "posterior", "evidence"],
+        "properties": {
+          "domain": {"type": "string"},
+          "posterior": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
     }
   }
 }

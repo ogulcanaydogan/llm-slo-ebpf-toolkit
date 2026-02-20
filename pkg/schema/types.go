@@ -33,19 +33,27 @@ type SLOImpact struct {
 	WindowMinutes int     `json:"window_minutes"`
 }
 
+// FaultHypothesis is one Bayesian posterior for a candidate fault domain.
+type FaultHypothesis struct {
+	Domain    string   `json:"domain"`
+	Posterior float64  `json:"posterior"`
+	Evidence  []string `json:"evidence"`
+}
+
 // IncidentAttribution is the normalized attribution envelope.
 type IncidentAttribution struct {
-	IncidentID           string     `json:"incident_id"`
-	Timestamp            time.Time  `json:"timestamp"`
-	Cluster              string     `json:"cluster"`
-	Namespace            string     `json:"namespace,omitempty"`
-	Service              string     `json:"service"`
-	PredictedFaultDomain string     `json:"predicted_fault_domain"`
-	Confidence           float64    `json:"confidence"`
-	Evidence             []Evidence `json:"evidence"`
-	SLOImpact            SLOImpact  `json:"slo_impact"`
-	TraceIDs             []string   `json:"trace_ids,omitempty"`
-	RequestIDs           []string   `json:"request_ids,omitempty"`
+	IncidentID           string            `json:"incident_id"`
+	Timestamp            time.Time         `json:"timestamp"`
+	Cluster              string            `json:"cluster"`
+	Namespace            string            `json:"namespace,omitempty"`
+	Service              string            `json:"service"`
+	PredictedFaultDomain string            `json:"predicted_fault_domain"`
+	Confidence           float64           `json:"confidence"`
+	Evidence             []Evidence        `json:"evidence"`
+	SLOImpact            SLOImpact         `json:"slo_impact"`
+	TraceIDs             []string          `json:"trace_ids,omitempty"`
+	RequestIDs           []string          `json:"request_ids,omitempty"`
+	FaultHypotheses      []FaultHypothesis `json:"fault_hypotheses,omitempty"`
 }
 
 // ConnTuple identifies one network flow tuple observed by probes.

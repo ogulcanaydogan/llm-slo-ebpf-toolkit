@@ -6,26 +6,43 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/attribution"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/schema"
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/toolkitcfg"
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/webhook"
 )
 
 type summaryPayload struct {
-	GeneratedAt   string         `json:"generated_at"`
-	TotalSamples  int            `json:"total_samples"`
-	Accuracy      float64        `json:"accuracy"`
-	DomainCounts  map[string]int `json:"predicted_domain_counts"`
-	InputPath     string         `json:"input_path,omitempty"`
-	OutputPath    string         `json:"output_path,omitempty"`
-	ConfusionPath string         `json:"confusion_path,omitempty"`
+	GeneratedAt           string         `json:"generated_at"`
+	TotalSamples          int            `json:"total_samples"`
+	Accuracy              float64        `json:"accuracy"`
+	AttributionMode       string         `json:"attribution_mode"`
+	DomainCounts          map[string]int `json:"predicted_domain_counts"`
+	WebhookEnabled        bool           `json:"webhook_enabled"`
+	WebhookStrict         bool           `json:"webhook_strict"`
+	WebhookDeliveryErrors int            `json:"webhook_delivery_errors"`
+	InputPath             string         `json:"input_path,omitempty"`
+	OutputPath            string         `json:"output_path,omitempty"`
+	ConfusionPath         string         `json:"confusion_path,omitempty"`
 }
 
 func main() {
+	defaultConfigPath := filepath.Join("config", "toolkit.yaml")
+	configPathValue := resolveConfigPath(os.Args[1:], defaultConfigPath)
+	cfg := toolkitcfg.Default()
+	if loaded, err := toolkitcfg.Load(configPathValue); err == nil {
+		cfg = loaded
+	} else {
+		log.Printf("warning: failed to load config %s: %v (using defaults)", configPathValue, err)
+	}
+
 	inputPath := flag.String("input", "", "JSONL file containing fault samples")
 	outPath := flag.String("out", "-", "Attribution JSONL output path ('-' for stdout)")
 	summaryPath := flag.String("summary-out", "", "Optional JSON summary output path")
@@ -35,7 +52,24 @@ func main() {
 		filepath.Join("docs", "contracts", "v1", "incident-attribution.schema.json"),
 		"Incident attribution JSON schema path",
 	)
+	configPath := flag.String("config", configPathValue, "toolkit config path")
+	attributionMode := flag.String("attribution-mode", attribution.AttributionModeBayes, "attribution mode: bayes|rule")
+	webhookEnabled := flag.Bool("webhook-enabled", cfg.Webhook.Enabled, "enable webhook delivery")
+	webhookURL := flag.String("webhook-url", cfg.Webhook.URL, "webhook endpoint URL")
+	webhookSecret := flag.String("webhook-secret", cfg.Webhook.Secret, "webhook secret for HMAC signature")
+	webhookFormat := flag.String("webhook-format", cfg.Webhook.Format, "webhook format: generic|pagerduty|opsgenie")
+	webhookTimeoutMS := flag.Int("webhook-timeout-ms", cfg.Webhook.TimeoutMS, "webhook timeout in milliseconds")
+	webhookStrict := flag.Bool("webhook-strict", false, "fail command when webhook delivery fails")
 	flag.Parse()
+
+	// Reload if the parsed config path differs from the pre-resolved path.
+	if strings.TrimSpace(*configPath) != strings.TrimSpace(configPathValue) {
+		if loaded, err := toolkitcfg.Load(*configPath); err == nil {
+			cfg = loaded
+		} else {
+			log.Printf("warning: failed to load config %s: %v (continuing with previous defaults)", *configPath, err)
+		}
+	}
 
 	samples, err := loadSamples(*inputPath)
 	if err != nil {
@@ -43,7 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	predictions := attribution.BuildAttributions(samples)
+	predictions := attribution.BuildAttributions(samples, *attributionMode)
 	for _, prediction := range predictions {
 		if err := schema.ValidateAgainstSchema(*schemaPath, prediction); err != nil {
 			fmt.Fprintf(os.Stderr, "schema validation failed: %v\n", err)
@@ -63,11 +97,77 @@ func main() {
 		}
 	}
 
+	webhookErrCount := 0
+	if *webhookEnabled {
+		if strings.TrimSpace(*webhookURL) == "" {
+			msg := "webhook delivery enabled but webhook-url is empty"
+			if *webhookStrict {
+				fmt.Fprintln(os.Stderr, msg)
+				os.Exit(1)
+			}
+			log.Printf("warning: %s", msg)
+		} else {
+			format, parseErr := parseWebhookFormat(*webhookFormat)
+			if parseErr != nil {
+				fmt.Fprintf(os.Stderr, "invalid webhook-format: %v\n", parseErr)
+				os.Exit(2)
+			}
+			exporter := webhook.New(*webhookURL, *webhookSecret, format, *webhookTimeoutMS)
+			for _, prediction := range predictions {
+				if err := exporter.Send(prediction); err != nil {
+					webhookErrCount++
+					if *webhookStrict {
+						fmt.Fprintf(os.Stderr, "webhook delivery failed: %v\n", err)
+						os.Exit(1)
+					}
+					log.Printf("warning: webhook delivery failed for incident %s: %v", prediction.IncidentID, err)
+				}
+			}
+		}
+	}
+
 	if *summaryPath != "" {
-		if err := writeSummaryJSON(*summaryPath, *inputPath, *outPath, *confusionPath, samples, predictions); err != nil {
+		if err := writeSummaryJSON(
+			*summaryPath,
+			*inputPath,
+			*outPath,
+			*confusionPath,
+			*attributionMode,
+			*webhookEnabled,
+			*webhookStrict,
+			webhookErrCount,
+			samples,
+			predictions,
+		); err != nil {
 			fmt.Fprintf(os.Stderr, "failed writing summary: %v\n", err)
 			os.Exit(1)
 		}
+	}
+}
+
+func resolveConfigPath(args []string, fallback string) string {
+	for idx := 0; idx < len(args); idx++ {
+		arg := strings.TrimSpace(args[idx])
+		if arg == "--config" && idx+1 < len(args) {
+			return strings.TrimSpace(args[idx+1])
+		}
+		if strings.HasPrefix(arg, "--config=") {
+			return strings.TrimSpace(strings.TrimPrefix(arg, "--config="))
+		}
+	}
+	return fallback
+}
+
+func parseWebhookFormat(raw string) (webhook.Format, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", string(webhook.FormatGeneric):
+		return webhook.FormatGeneric, nil
+	case string(webhook.FormatPagerDuty):
+		return webhook.FormatPagerDuty, nil
+	case string(webhook.FormatOpsgenie):
+		return webhook.FormatOpsgenie, nil
+	default:
+		return "", fmt.Errorf("unsupported format %q", raw)
 	}
 }
 
@@ -179,6 +279,10 @@ func writeSummaryJSON(
 	inputPath string,
 	outputPath string,
 	confusionPath string,
+	attributionMode string,
+	webhookEnabled bool,
+	webhookStrict bool,
+	webhookErrCount int,
 	samples []attribution.FaultSample,
 	predictions []schema.IncidentAttribution,
 ) error {
@@ -192,13 +296,17 @@ func writeSummaryJSON(
 	}
 
 	summary := summaryPayload{
-		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
-		TotalSamples:  len(samples),
-		Accuracy:      attribution.Accuracy(samples, predictions),
-		DomainCounts:  domainCounts,
-		InputPath:     inputPath,
-		OutputPath:    outputPath,
-		ConfusionPath: confusionPath,
+		GeneratedAt:           time.Now().UTC().Format(time.RFC3339),
+		TotalSamples:          len(samples),
+		Accuracy:              attribution.Accuracy(samples, predictions),
+		AttributionMode:       attributionMode,
+		DomainCounts:          domainCounts,
+		WebhookEnabled:        webhookEnabled,
+		WebhookStrict:         webhookStrict,
+		WebhookDeliveryErrors: webhookErrCount,
+		InputPath:             inputPath,
+		OutputPath:            outputPath,
+		ConfusionPath:         confusionPath,
 	}
 
 	encoded, err := json.MarshalIndent(summary, "", "  ")
