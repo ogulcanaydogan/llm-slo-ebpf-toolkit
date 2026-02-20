@@ -49,3 +49,16 @@ jobs:
         run: |
           go run ./cmd/faultreplay --scenario mixed --count 24 --out /tmp/fault_samples.jsonl
           go run ./cmd/benchgen --out artifacts/benchmarks-ci --scenario mixed_faults --input /tmp/fault_samples.jsonl
+      - name: Helm lint
+        run: |
+          if command -v helm >/dev/null 2>&1; then
+            helm lint charts/llm-slo-agent
+          else
+            echo "helm not installed, skipping lint"
+          fi
+      - name: Webhook smoke test
+        run: go test ./pkg/webhook/... -v -count=1
+      - name: CD gate smoke test
+        run: go test ./pkg/cdgate/... -v -count=1
+      - name: Multi-fault attribution test
+        run: go test ./pkg/attribution/... -v -count=1 -run 'TestMultiFault|TestPartialAccuracy|TestCoverageAccuracy'
