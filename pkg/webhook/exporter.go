@@ -114,7 +114,9 @@ func (e *Exporter) doPost(payload []byte, contentType string) error {
 		return fmt.Errorf("http post: %w", err)
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		return fmt.Errorf("drain response body: %w", err)
+	}
 
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("server error: HTTP %d", resp.StatusCode)
