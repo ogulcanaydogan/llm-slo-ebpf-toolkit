@@ -156,6 +156,12 @@ func signalAttrKey(signal string) (string, bool) {
 		return semconv.AttrCPUStealPct, true
 	case "cfs_throttled_ms":
 		return semconv.AttrCFSThrottledMS, true
+	case "mem_reclaim_latency_ms":
+		return semconv.AttrMemReclaimLatencyMS, true
+	case "disk_io_latency_ms":
+		return semconv.AttrDiskIOLatencyMS, true
+	case "syscall_latency_ms":
+		return semconv.AttrSyscallLatencyMS, true
 	default:
 		return "", false
 	}

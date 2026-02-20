@@ -15,6 +15,7 @@
 	ebpf-gen \
 	ebpf-smoke \
 	bench \
+	bench-multi \
 	replay \
 	inject \
 	collector-smoke \
@@ -23,6 +24,11 @@
 	chaos-agent-otlp \
 	correlation-gate \
 	m5-gate \
+	m5-candidate-rebuild \
+	m5-baseline-rebuild \
+	helm-lint \
+	helm-template \
+	cdgate-smoke \
 	runner-validate \
 	runner-profile-discovery
 
@@ -38,6 +44,9 @@ M5_BASELINE_MANIFEST ?= artifacts/weekly-benchmark/baseline/manifest.json
 M5_CANDIDATE_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
 M5_CANDIDATE_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo local)
 M5_REQUIRE_BASELINE_MANIFEST ?= false
+comma := ,
+M5_SCENARIOS ?= dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed,mixed_multi
+M5_SCENARIOS_LIST := $(subst $(comma), ,$(M5_SCENARIOS))
 M5_MAX_OVERHEAD_PCT ?= 3
 M5_MAX_VARIANCE_PCT ?= 10
 M5_MIN_RUNS ?= 3
@@ -46,6 +55,9 @@ M5_ALPHA ?= 0.05
 M5_BOOTSTRAP_ITERS ?= 1000
 M5_MIN_SAMPLES ?= 30
 M5_MIN_CLIFFS_DELTA ?= 0.147
+M5_BASELINE_SAMPLE_COUNT ?= 36
+M5_CANDIDATE_RUN_COUNT ?= 3
+M5_CANDIDATE_SAMPLES_PER_RUN ?= 24
 M5_OUT_JSON ?= artifacts/weekly-benchmark/m5_gate_summary.json
 M5_OUT_MD ?= artifacts/weekly-benchmark/m5_gate_summary.md
 
@@ -67,6 +79,7 @@ schema-validate:
 		echo "validating $$schema"; \
 		jq -e . "$$schema" >/dev/null; \
 	done
+	go run ./cmd/schemavalidate
 
 prereq-check:
 	go run ./cmd/sloctl prereq check
@@ -145,7 +158,7 @@ m5-gate:
 		--candidate-ref $(M5_CANDIDATE_REF) \
 		--candidate-commit $(M5_CANDIDATE_COMMIT) \
 		--require-baseline-manifest=$(M5_REQUIRE_BASELINE_MANIFEST) \
-		--scenarios dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed \
+		--scenarios $(M5_SCENARIOS) \
 		--max-overhead-pct $(M5_MAX_OVERHEAD_PCT) \
 		--max-variance-pct $(M5_MAX_VARIANCE_PCT) \
 		--min-runs $(M5_MIN_RUNS) \
@@ -156,6 +169,31 @@ m5-gate:
 		--min-cliffs-delta $(M5_MIN_CLIFFS_DELTA) \
 		--out-json $(M5_OUT_JSON) \
 		--out-md $(M5_OUT_MD)
+
+m5-candidate-rebuild:
+	@mkdir -p $(M5_CANDIDATE_ROOT)
+	@for scenario in $(M5_SCENARIOS_LIST); do \
+		for run in $$(seq 1 $(M5_CANDIDATE_RUN_COUNT)); do \
+			run_dir="$(M5_CANDIDATE_ROOT)/$$scenario/run-$$run"; \
+			mkdir -p "$$run_dir"; \
+			echo "rebuilding candidate run $$run for $$scenario"; \
+			go run ./cmd/faultinject --scenario "$$scenario" --count $(M5_CANDIDATE_SAMPLES_PER_RUN) --out "$$run_dir/raw_samples.jsonl"; \
+			go run ./cmd/faultreplay --scenario "$$scenario" --count $(M5_CANDIDATE_SAMPLES_PER_RUN) --out "$$run_dir/replay.jsonl"; \
+			bench_scenario="$$scenario"; \
+			if [ "$$scenario" = "mixed" ]; then bench_scenario="mixed_faults"; fi; \
+			go run ./cmd/benchgen --out "$$run_dir" --scenario "$$bench_scenario" --input "$$run_dir/replay.jsonl"; \
+		done; \
+	done
+
+m5-baseline-rebuild:
+	@mkdir -p $(M5_BASELINE_ROOT)
+	@for scenario in $(M5_SCENARIOS_LIST); do \
+		out_dir="$(M5_BASELINE_ROOT)/$$scenario"; \
+		mkdir -p "$$out_dir"; \
+		echo "rebuilding baseline samples for $$scenario -> $$out_dir/raw_samples.jsonl"; \
+		go run ./cmd/faultinject --scenario "$$scenario" --count $(M5_BASELINE_SAMPLE_COUNT) --out "$$out_dir/raw_samples.jsonl"; \
+	done
+	@printf '{\n  "source_ref": "local-baseline-rebuild",\n  "source_commit": "%s",\n  "generated_at": "%s"\n}\n' "$$(git rev-parse HEAD 2>/dev/null || echo local)" "$$(date -u +%Y-%m-%dT%H:%M:%SZ)" > $(M5_BASELINE_MANIFEST)
 
 runner-validate:
 	gh api repos/$${GITHUB_REPOSITORY:-ogulcanaydogan/LLM-SLO-eBPF-Toolkit}/actions/runners \
@@ -169,3 +207,16 @@ runner-profile-discovery:
 		--profiles "$${RUNNER_PROFILES:-kernel-5-15,kernel-6-8}" \
 		--out artifacts/compatibility/runner-discovery.local.json
 	jq . artifacts/compatibility/runner-discovery.local.json
+
+helm-lint:
+	helm lint charts/llm-slo-agent
+
+helm-template:
+	helm template test-release charts/llm-slo-agent
+
+bench-multi:
+	go run ./cmd/faultreplay --scenario mixed_multi --count 30 --out artifacts/fault-replay/multi_fault_samples.jsonl
+	go run ./cmd/benchgen --out artifacts/benchmarks-multi --scenario mixed_multi --input artifacts/fault-replay/multi_fault_samples.jsonl
+
+cdgate-smoke:
+	go test ./pkg/cdgate/... -v -count=1

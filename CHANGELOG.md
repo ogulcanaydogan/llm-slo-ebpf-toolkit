@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-02-20
+
+### New eBPF Probes
+- Added memory reclaim latency probe (`mem_reclaim_latency_ms`) via `vmscan/mm_vmscan_direct_reclaim_begin` + `end` tracepoints.
+- Added disk I/O latency probe (`disk_io_latency_ms`) via `block/block_rq_issue` + `block_rq_complete` tracepoints.
+- Added syscall latency probe (`syscall_latency_ms`) via `kprobe/kretprobe` on `ksys_read` + `ksys_write`.
+- Extended signal set from 6 to 9 probes with full signal generator profiles, thresholds, and semantic conventions.
+
+### Bayesian Multi-Fault Attribution
+- Added `BayesianAttributor` with naive Bayes posterior computation across 8 fault domains.
+- Added `FaultHypothesis` schema extension (domain, posterior, evidence) to `IncidentAttribution`.
+- Added multi-fault evaluation metrics: `PartialAccuracy` (top-1 in expected set) and `CoverageAccuracy` (hypothesis coverage above threshold).
+- Added multi-fault labeled dataset (`multi_fault_samples.jsonl`) with 20 samples covering single, dual, and triple fault combinations.
+- Added `mixed_multi` incident scenario for compound fault injection.
+
+### Helm Chart
+- Added Helm chart under `charts/llm-slo-agent/` producing identical resources to existing kustomize manifests.
+- Chart supports all agent configuration via `values.yaml` including OTLP, webhook, CD gate, signal set, and security context.
+- Helm chart published to GHCR OCI registry on release.
+
+### Webhook Exporter
+- Added webhook exporter (`pkg/webhook/`) with HMAC-SHA256 signing and exponential backoff retry.
+- Added PagerDuty Events API v2 payload builder with severity mapping from burn rate.
+- Added Opsgenie Alert API payload builder with priority mapping from burn rate.
+- Added webhook configuration section to `toolkit.yaml` (disabled by default).
+
+### CD Gate
+- Added SLO CD gate (`pkg/cdgate/`) querying Prometheus for TTFT p95, error rate, and burn rate.
+- Added `sloctl cdgate check` subcommand with `--fail-open`, JSON/text output, and configurable thresholds.
+- Added CD gate configuration section to `toolkit.yaml` (disabled by default).
+
+### CI/CD
+- Added `helm-lint`, `helm-template`, `bench-multi`, `cdgate-smoke` Makefile targets.
+- Added CI steps for Helm lint, webhook smoke, CD gate smoke, and multi-fault attribution tests.
+- Added `mixed_multi` to weekly benchmark scenario matrix.
+- Added Helm chart OCI push to release workflow.
+
 ## v0.2.0 - 2026-02-19
 
 - Added release workflow container publishing for `agent` and `rag-service` images to GHCR with keyless cosign signing and provenance attestations.

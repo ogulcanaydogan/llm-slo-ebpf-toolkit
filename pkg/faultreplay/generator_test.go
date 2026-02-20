@@ -56,3 +56,19 @@ func TestGenerateFaultSamplesNetworkPartition(t *testing.T) {
 		t.Fatalf("expected network_partition label, got %s", samples[0].FaultLabel)
 	}
 }
+
+func TestGenerateFaultSamplesMixedMulti(t *testing.T) {
+	samples, err := GenerateFaultSamples("mixed_multi", 4, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatalf("generate samples: %v", err)
+	}
+	if len(samples) != 4 {
+		t.Fatalf("expected 4 samples, got %d", len(samples))
+	}
+	if len(samples[0].ExpectedDomains) < 2 {
+		t.Fatalf("expected multi-fault expected_domains, got %+v", samples[0].ExpectedDomains)
+	}
+	if samples[0].ExpectedDomain == "" || samples[0].ExpectedDomain == "unknown" {
+		t.Fatalf("expected primary expected_domain, got %q", samples[0].ExpectedDomain)
+	}
+}

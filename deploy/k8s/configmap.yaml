@@ -14,6 +14,9 @@ data:
       - connect_latency_ms
       - tls_handshake_ms
       - cpu_steal_pct
+      - mem_reclaim_latency_ms
+      - disk_io_latency_ms
+      - syscall_latency_ms
     sampling:
       events_per_second_limit: 10000
       burst_limit: 20000

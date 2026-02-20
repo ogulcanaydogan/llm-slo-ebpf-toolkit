@@ -1,0 +1,61 @@
+name: mixed_multi
+description: >
+  Simultaneous multi-fault injection combining DNS latency with CPU throttle
+  and provider throttle with memory pressure. Tests the Bayesian multi-fault
+  attribution engine's ability to identify compound root causes.
+
+fault_profile:
+  dns_latency_ms: 200
+  runqueue_delay_ms: 25
+  cpu_steal_pct: 8
+  cfs_throttled_ms: 100
+  connect_latency_ms: 90
+  tls_handshake_ms: 65
+  syscall_latency_ms: 180
+  mem_reclaim_latency_ms: 20
+  disk_io_latency_ms: 45
+
+expected_impact:
+  ttft_breach: true
+  primary_signal: dns_latency_ms
+  secondary_signals:
+    - cfs_throttled_ms
+    - syscall_latency_ms
+    - mem_reclaim_latency_ms
+  error_rate_elevated: true
+
+multi_fault:
+  compound_labels:
+    - network_dns
+    - cpu_throttle
+    - provider_throttle
+  evaluation:
+    partial_accuracy_threshold: 0.80
+    coverage_accuracy_threshold: 0.60
+
+harness:
+  seed: 42
+  load_profile: rag_mixed_20rps
+  phases:
+    baseline:
+      duration: 10m
+    fault:
+      duration: 10m
+    recovery:
+      duration: 5m
+  sample_count: 24
+  repetitions: 10
+
+assertions:
+  - metric: dns_latency_ms_p95
+    operator: ">"
+    value: 150
+    phase: fault
+  - metric: cfs_throttled_ms_p95
+    operator: ">"
+    value: 60
+    phase: fault
+  - metric: syscall_latency_ms_p95
+    operator: ">"
+    value: 100
+    phase: fault

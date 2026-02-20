@@ -140,9 +140,20 @@ jobs:
           subject-digest: ${{ steps.build_rag_image.outputs.digest }}
           push-to-registry: true
 
-      - name: Write image artifact manifest
+      - name: Package and push Helm chart to GHCR OCI
+        id: helm_chart
         run: |
-          cat > dist/container-images.json <<EOF
+          CHART_VERSION="${GITHUB_REF_NAME#v}"
+          CHART_PACKAGE=$(helm package charts/llm-slo-agent --version "${CHART_VERSION}" --app-version "${GITHUB_REF_NAME}" -d dist/ | awk '{print $NF}')
+          HELM_PUSH_OUTPUT=$(helm push "${CHART_PACKAGE}" "oci://${REGISTRY}/${{ steps.image.outputs.owner_lc }}/charts")
+          echo "${HELM_PUSH_OUTPUT}"
+          CHART_DIGEST=$(echo "${HELM_PUSH_OUTPUT}" | grep -Eo 'sha256:[a-f0-9]+' | head -n1)
+          echo "chart_file=$(basename "${CHART_PACKAGE}")" >> "$GITHUB_OUTPUT"
+          echo "chart_digest=${CHART_DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Write release artifact manifest
+        run: |
+          cat > dist/release-artifacts.json <<EOF
           {
             "version": "${{ github.ref_name }}",
             "agent": {
@@ -154,6 +165,15 @@ jobs:
               "repository": "${{ steps.image.outputs.rag_ref }}",
               "tag": "${{ github.ref_name }}",
               "digest": "${{ steps.build_rag_image.outputs.digest }}"
+            },
+            "helm_chart": {
+              "registry": "oci://${{ env.REGISTRY }}/${{ steps.image.outputs.owner_lc }}/charts",
+              "file": "${{ steps.helm_chart.outputs.chart_file }}",
+              "digest": "${{ steps.helm_chart.outputs.chart_digest }}"
+            },
+            "checksums": {
+              "algorithm": "sha256",
+              "file": "checksums-sha256.txt"
             }
           }
           EOF
@@ -168,4 +188,5 @@ jobs:
             dist/checksums-sha256.txt
             dist/sbom-spdx.json
             dist/provenance.json
-            dist/container-images.json
+            dist/release-artifacts.json
+            dist/llm-slo-agent-*.tgz

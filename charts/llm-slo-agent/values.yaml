@@ -1,0 +1,102 @@
+# Default values for llm-slo-agent.
+
+image:
+  repository: ghcr.io/ogulcanaydogan/llm-slo-ebpf-toolkit-agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespace: llm-slo-system
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
+agent:
+  # Scenario to run (mixed, dns_latency, cpu_throttle, etc.)
+  scenario: "mixed"
+  outputMode: "otlp"
+  eventKind: "probe"
+  capabilityMode: "auto"
+  sampleCount: "0"
+  sampleIntervalMS: "1000"
+  disableSignals: ""
+  disableOverheadGuard: "false"
+  enableHelloTracer: "true"
+  helloTargetComm: "rag-service,llama-server"
+  enableRealProbeMetrics: "true"
+  cluster: "local"
+  defaultNamespace: "default"
+  workload: "llm-slo-agent"
+  service: "agent"
+
+otlp:
+  endpoint: "http://otel-collector.observability.svc.cluster.local:4318/v1/logs"
+  timeoutMS: "5000"
+
+metrics:
+  port: 2112
+  bindAddress: ":2112"
+
+toolkit:
+  signalSet:
+    - dns_latency_ms
+    - tcp_retransmits_total
+    - runqueue_delay_ms
+    - connect_latency_ms
+    - tls_handshake_ms
+    - cpu_steal_pct
+    - mem_reclaim_latency_ms
+    - disk_io_latency_ms
+    - syscall_latency_ms
+  sampling:
+    eventsPerSecondLimit: 10000
+    burstLimit: 20000
+  correlation:
+    windowMS: 2000
+  safety:
+    maxOverheadPct: 5
+
+webhook:
+  enabled: false
+  url: ""
+  secret: ""
+  format: "generic"
+  timeoutMS: 5000
+
+cdgate:
+  enabled: false
+  prometheusURL: "http://prometheus:9090"
+  ttftP95MS: 800
+  errorRate: 0.05
+  burnRate: 2.0
+  failOpen: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+securityContext:
+  privileged: true
+  capabilities:
+    add:
+      - BPF
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - NET_ADMIN
+
+tolerations:
+  - operator: Exists
+
+nodeSelector: {}
+
+affinity: {}

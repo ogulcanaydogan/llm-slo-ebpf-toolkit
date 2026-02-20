@@ -1,0 +1,177 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "llm-slo-agent.fullname" . }}
+  namespace: {{ include "llm-slo-agent.namespace" . }}
+  labels:
+    {{- include "llm-slo-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "llm-slo-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "llm-slo-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "llm-slo-agent.serviceAccountName" . }}
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: EVENT_KIND
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: event_kind
+            - name: OUTPUT_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: output_mode
+            - name: OTLP_ENDPOINT
+              value: {{ .Values.otlp.endpoint | quote }}
+            - name: OTLP_TIMEOUT_MS
+              value: {{ .Values.otlp.timeoutMS | quote }}
+            - name: CHAOS_SCENARIO
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: scenario
+            - name: SAMPLE_COUNT
+              value: {{ .Values.agent.sampleCount | quote }}
+            - name: SAMPLE_INTERVAL_MS
+              value: {{ .Values.agent.sampleIntervalMS | quote }}
+            - name: CAPABILITY_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: capability_mode
+            - name: DISABLE_SIGNALS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: disable_signals
+            - name: DISABLE_OVERHEAD_GUARD
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: disable_overhead_guard
+            - name: ENABLE_HELLO_TRACER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: enable_hello_tracer
+            - name: HELLO_TARGET_COMM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: hello_target_comm
+            - name: ENABLE_REAL_PROBE_METRICS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "llm-slo-agent.fullname" . }}-config
+                  key: enable_real_probe_metrics
+          command:
+            - /app/agent
+          args:
+            - "--scenario=$(CHAOS_SCENARIO)"
+            - "--count=$(SAMPLE_COUNT)"
+            - "--interval-ms=$(SAMPLE_INTERVAL_MS)"
+            - "--cluster={{ .Values.agent.cluster }}"
+            - "--namespace={{ .Values.agent.defaultNamespace }}"
+            - "--workload={{ .Values.agent.workload }}"
+            - "--service={{ .Values.agent.service }}"
+            - "--k8s-node=$(NODE_NAME)"
+            - "--pod=$(POD_NAME)"
+            - "--container=agent"
+            - "--event-kind=$(EVENT_KIND)"
+            - "--output=$(OUTPUT_MODE)"
+            - "--otlp-endpoint=$(OTLP_ENDPOINT)"
+            - "--otlp-timeout-ms=$(OTLP_TIMEOUT_MS)"
+            - "--capability-mode=$(CAPABILITY_MODE)"
+            - "--disable-signals=$(DISABLE_SIGNALS)"
+            - "--disable-overhead-guard=$(DISABLE_OVERHEAD_GUARD)"
+            - "--enable-hello-tracer=$(ENABLE_HELLO_TRACER)"
+            - "--hello-target-comm=$(HELLO_TARGET_COMM)"
+            - "--enable-real-probe-metrics=$(ENABLE_REAL_PROBE_METRICS)"
+            - "--config=/etc/llm-slo-agent/toolkit.yaml"
+            - "--metrics-bind={{ .Values.metrics.bindAddress }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+            - name: modules
+              mountPath: /lib/modules
+              readOnly: true
+            - name: proc
+              mountPath: /proc
+              readOnly: true
+            - name: bpf
+              mountPath: /sys/fs/bpf
+            - name: agent-config
+              mountPath: /etc/llm-slo-agent
+              readOnly: true
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: modules
+          hostPath:
+            path: /lib/modules
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: bpf
+          hostPath:
+            path: /sys/fs/bpf
+        - name: agent-config
+          configMap:
+            name: {{ include "llm-slo-agent.fullname" . }}-config
+            items:
+              - key: toolkit.yaml
+                path: toolkit.yaml

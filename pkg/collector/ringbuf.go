@@ -33,6 +33,9 @@ const (
 	signalTypeConnectLat    uint32 = 4
 	signalTypeTLSHandshake  uint32 = 5
 	signalTypeCPUSteal      uint32 = 6
+	signalTypeMemReclaim    uint32 = 7
+	signalTypeDiskIOLatency uint32 = 8
+	signalTypeSyscallLat    uint32 = 9
 )
 
 // bpfEvent matches the packed struct llm_slo_event from llm_slo_event.h.
@@ -207,6 +210,12 @@ func signalFromType(st uint32) (string, string) {
 		return "tls_handshake_ms", "ms"
 	case signalTypeCPUSteal:
 		return "cpu_steal_pct", "ns"
+	case signalTypeMemReclaim:
+		return "mem_reclaim_latency_ms", "ms"
+	case signalTypeDiskIOLatency:
+		return "disk_io_latency_ms", "ms"
+	case signalTypeSyscallLat:
+		return "syscall_latency_ms", "ms"
 	default:
 		return "unknown", "unknown"
 	}

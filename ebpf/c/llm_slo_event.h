@@ -9,6 +9,9 @@ enum llm_slo_signal_type {
     LLM_SLO_CONNECT_LATENCY = 4,
     LLM_SLO_TLS_HANDSHAKE   = 5,
     LLM_SLO_CPU_STEAL       = 6,
+    LLM_SLO_MEM_RECLAIM     = 7,
+    LLM_SLO_DISK_IO_LATENCY = 8,
+    LLM_SLO_SYSCALL_LATENCY = 9,
 };
 
 /*

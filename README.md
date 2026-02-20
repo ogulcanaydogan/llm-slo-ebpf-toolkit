@@ -2,7 +2,7 @@
 
 **Kernel-grounded observability for LLM reliability engineering.**
 
-A Kubernetes-native toolkit that uses eBPF to capture kernel-level signals — DNS latency, TCP retransmits, scheduling delays, connection timing, TLS handshakes, and CPU steal — and correlates them with OpenTelemetry traces and Kubernetes workload identity to produce causal incident attributions for LLM service-level objectives.
+A Kubernetes-native toolkit that uses eBPF to capture kernel-level signals — DNS latency, TCP retransmits, scheduling delays, connection timing, TLS handshakes, CPU steal, memory reclaim latency, disk I/O latency, and syscall latency — and correlates them with OpenTelemetry traces and Kubernetes workload identity to produce Bayesian multi-fault incident attributions for LLM service-level objectives.
 
 Production LLM systems fail in ways that application instrumentation alone cannot explain. When a retrieval-augmented generation service violates its time-to-first-token SLO, the root cause may be DNS resolution delays, provider throttling, noisy-neighbor CPU contention, or network packet loss — none of which are visible in application traces. This toolkit closes that observability gap by fusing kernel telemetry with application context, enabling SRE teams to attribute SLO violations to specific fault domains with measurable confidence.
 
@@ -51,7 +51,7 @@ The toolkit operates as a three-stage pipeline deployed alongside LLM workloads:
 ```mermaid
 graph LR
     subgraph S1["Stage 1: Collection"]
-        EBPF["eBPF Probes<br/>6 kernel signals"]
+        EBPF["eBPF Probes<br/>9 kernel signals"]
     end
 
     subgraph S2["Stage 2: Correlation"]
@@ -78,7 +78,7 @@ graph LR
 
 ### Stage 1: Kernel Signal Collection
 
-Six eBPF programs attach to kernel tracepoints and kprobes using libbpf CO-RE (Compile Once, Run Everywhere) for portability across kernel versions. A BCC fallback path supports older hosts without BTF (BPF Type Format) support. Signals collected:
+Nine eBPF programs attach to kernel tracepoints and kprobes using libbpf CO-RE (Compile Once, Run Everywhere) for portability across kernel versions. A BCC fallback path supports older hosts without BTF (BPF Type Format) support. Signals collected:
 
 | Signal | Source | LLM Relevance |
 |---|---|---|
@@ -88,6 +88,9 @@ Six eBPF programs attach to kernel tracepoints and kprobes using libbpf CO-RE (C
 | Connect latency | `kprobe/tcp_v4_connect` | Provider API connection overhead |
 | TLS handshake time | `kprobe/ssl_do_handshake` | Encryption cost in provider communication |
 | CPU steal | `/proc/stat` polling | Hypervisor-level resource contention |
+| Memory reclaim latency | `tracepoint/vmscan/mm_vmscan_direct_reclaim` | Page reclaim blocking affecting inference throughput |
+| Disk I/O latency | `tracepoint/block/block_rq_issue+complete` | Storage bottlenecks in retrieval and model loading |
+| Syscall latency | `kprobe/ksys_read+ksys_write` | Provider API call latency at syscall boundary |
 
 The agent runs as a Kubernetes DaemonSet with configurable sampling and a safety governor that enforces a hard CPU overhead ceiling (development: 5%, production: 3%).
 
@@ -177,10 +180,11 @@ graph LR
 
 ### Stage 3: Attribution and SLO Diagnostics
 
-Correlated events feed an attribution engine that classifies SLO violations into fault domains (network, compute, provider, retrieval) and produces structured outputs:
+Correlated events feed a Bayesian attribution engine that classifies SLO violations into fault domains (network, compute, provider, retrieval, memory, unknown) using naive Bayes posterior computation across 8 fault domains and produces structured outputs:
 
 - **SLO events** aligned to a stable v1 JSON schema with LLM-specific SLIs: time-to-first-token (TTFT), token throughput, request latency, error rate, retrieval latency
-- **Incident attributions** with fault-domain classification, confidence scores, and evidence chains
+- **Incident attributions** with fault-domain classification, Bayesian fault hypotheses with posterior probabilities, confidence scores, and evidence chains
+- **Multi-fault hypotheses** supporting simultaneous fault detection with partial accuracy and coverage metrics
 - **Confusion matrices** with per-fault precision, recall, and F1 scores
 - **Provenance metadata** for audit and reproducibility
 
@@ -371,8 +375,11 @@ make m5-gate
 # Start 3-node kind cluster
 make kind-up
 
-# Deploy agent DaemonSet
+# Deploy agent DaemonSet (kustomize)
 kubectl apply -k deploy/k8s
+
+# Or deploy via Helm
+helm install llm-slo-agent charts/llm-slo-agent --namespace llm-slo-system --create-namespace
 
 # Deploy reduced-risk profile (non-privileged, reduced signal set)
 kubectl apply -k deploy/k8s/min-capability
@@ -385,6 +392,47 @@ make kind-observability-smoke
 
 # Tear down
 make kind-down
+```
+
+### Helm Installation (OCI Registry)
+```bash
+# Install from GHCR OCI registry
+helm install llm-slo-agent oci://ghcr.io/ogulcanaydogan/charts/llm-slo-agent --version 0.3.0
+
+# Custom values
+helm install llm-slo-agent charts/llm-slo-agent \
+  --set otlp.endpoint=http://my-collector:4318/v1/logs \
+  --set webhook.enabled=true \
+  --set webhook.url=https://events.pagerduty.com/v2/enqueue \
+  --set webhook.format=pagerduty
+```
+
+### Webhook Integration
+```bash
+# Enable webhook delivery in toolkit.yaml or via Helm values:
+#   webhook:
+#     enabled: true
+#     url: https://events.pagerduty.com/v2/enqueue
+#     secret: your-hmac-secret
+#     format: pagerduty  # or opsgenie, generic
+
+# Supported formats: generic (JSON), pagerduty (Events API v2), opsgenie (Alert API)
+# All payloads signed with HMAC-SHA256 when secret is configured
+```
+
+### CD Gate (SLO Validation)
+```bash
+# Check SLO metrics before deploying
+go run ./cmd/sloctl cdgate check \
+  --prometheus-url http://prometheus:9090 \
+  --ttft-p95-ms 800 \
+  --error-rate 0.05 \
+  --burn-rate 2.0 \
+  --output json
+
+# In CI/CD pipelines, use exit code for pass/fail gating
+# Exit 0 = pass, Exit 1 = fail
+# --fail-open (default: true) passes the gate if Prometheus is unreachable
 ```
 
 ### Agent and Collector
@@ -427,7 +475,7 @@ cmd/
 ├── faultinject/     # Raw fault injection harness
 ├── correlationeval/ # Correlation quality gate evaluator
 ├── m5gate/          # M5 GA gate bundle evaluator (B5/D3/E3)
-├── sloctl/          # CLI prerequisite checker
+├── sloctl/          # CLI toolkit (prereq check, CD gate)
 └── loadgen/         # Load generation utility
 
 pkg/
@@ -443,15 +491,20 @@ pkg/
 ├── slo/             # SLO burn-rate calculation
 ├── safety/          # Overhead guards and rate limiters
 ├── semconv/         # Semantic conventions (llm.ebpf.*)
-└── toolkitcfg/      # Configuration management
+├── toolkitcfg/      # Configuration management
+├── webhook/         # Webhook exporter (PagerDuty, Opsgenie, generic)
+└── cdgate/          # CD SLO gate (Prometheus-based)
 
 ebpf/
 ├── c/               # eBPF C programs (CO-RE)
 ├── bcc-fallback/    # BCC scripts for non-BTF hosts
 └── headers/         # vmlinux.h and helpers
 
+charts/
+└── llm-slo-agent/   # Helm chart for agent deployment
+
 deploy/
-├── k8s/             # DaemonSet, ConfigMap, RBAC
+├── k8s/             # DaemonSet, ConfigMap, RBAC (kustomize)
 ├── observability/   # Prometheus, Tempo, Grafana, OTel Collector
 └── kind/            # Local cluster configuration
 

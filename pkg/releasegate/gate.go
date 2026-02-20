@@ -205,7 +205,7 @@ func normalizeConfig(cfg Config) Config {
 		cfg.BaselineManifestPath = filepath.Join(cfg.BaselineRoot, "manifest.json")
 	}
 	if len(cfg.Scenarios) == 0 {
-		cfg.Scenarios = []string{"dns_latency", "cpu_throttle", "provider_throttle", "memory_pressure", "network_partition", "mixed"}
+		cfg.Scenarios = []string{"dns_latency", "cpu_throttle", "provider_throttle", "memory_pressure", "network_partition", "mixed", "mixed_multi"}
 	}
 	if cfg.MaxOverheadPct <= 0 {
 		cfg.MaxOverheadPct = 3
@@ -515,10 +515,9 @@ func evaluateSignificance(cfg Config) (SignificanceGate, error) {
 		if baselineP95 > 0 {
 			regressionPct = ((candidateP95 - baselineP95) / baselineP95) * 100
 		}
+		candidateTokensP50 := quantile(candidateTPS, 0.50)
+		baselineTokensP50 := quantile(baselineTPS, 0.50)
 
-		pValue := mannWhitneyPValue(candidateTTFT, baselineTTFT)
-		ciLow, ciHigh := bootstrapDeltaCI(candidateTTFT, baselineTTFT, 0.95, cfg.BootstrapIterations, rng)
-		cliffs := cliffsDelta(candidateTTFT, baselineTTFT)
 		minSamplesReached := len(candidateTTFT) >= cfg.MinSamplesPerScenario && len(baselineTTFT) >= cfg.MinSamplesPerScenario
 
 		scenarioResult := ScenarioSignificance{
@@ -528,12 +527,12 @@ func evaluateSignificance(cfg Config) (SignificanceGate, error) {
 			CandidateTTFTP95:      candidateP95,
 			BaselineTTFTP95:       baselineP95,
 			TTFTRegressionPct:     regressionPct,
-			CandidateTokensP50:    quantile(candidateTPS, 0.50),
-			BaselineTokensP50:     quantile(baselineTPS, 0.50),
-			MannWhitneyPValue:     pValue,
-			BootstrapDeltaCI95:    [2]float64{ciLow, ciHigh},
-			CliffsDelta:           cliffs,
-			PracticalEffectPass:   math.Abs(cliffs) >= cfg.MinCliffsDeltaForFailure,
+			CandidateTokensP50:    candidateTokensP50,
+			BaselineTokensP50:     baselineTokensP50,
+			MannWhitneyPValue:     1.0,
+			BootstrapDeltaCI95:    [2]float64{0, 0},
+			CliffsDelta:           0,
+			PracticalEffectPass:   false,
 			MinimumSamplesReached: minSamplesReached,
 			Pass:                  true,
 		}
@@ -550,6 +549,14 @@ func evaluateSignificance(cfg Config) (SignificanceGate, error) {
 			result.Scenarios = append(result.Scenarios, scenarioResult)
 			continue
 		}
+
+		pValue := mannWhitneyPValue(candidateTTFT, baselineTTFT)
+		ciLow, ciHigh := bootstrapDeltaCI(candidateTTFT, baselineTTFT, 0.95, cfg.BootstrapIterations, rng)
+		cliffs := cliffsDelta(candidateTTFT, baselineTTFT)
+		scenarioResult.MannWhitneyPValue = pValue
+		scenarioResult.BootstrapDeltaCI95 = [2]float64{ciLow, ciHigh}
+		scenarioResult.CliffsDelta = cliffs
+		scenarioResult.PracticalEffectPass = math.Abs(cliffs) >= cfg.MinCliffsDeltaForFailure
 
 		isRegression := regressionPct > cfg.RegressionPctLimit && pValue < cfg.SignificanceAlpha && ciLow > 0
 		if isRegression && !scenarioResult.PracticalEffectPass {

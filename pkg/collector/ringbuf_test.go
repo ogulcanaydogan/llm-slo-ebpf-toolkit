@@ -55,6 +55,9 @@ func TestSignalFromType(t *testing.T) {
 		{signalTypeConnectLat, "connect_latency_ms", "ms"},
 		{signalTypeTLSHandshake, "tls_handshake_ms", "ms"},
 		{signalTypeCPUSteal, "cpu_steal_pct", "ns"},
+		{signalTypeMemReclaim, "mem_reclaim_latency_ms", "ms"},
+		{signalTypeDiskIOLatency, "disk_io_latency_ms", "ms"},
+		{signalTypeSyscallLat, "syscall_latency_ms", "ms"},
 	}
 
 	for _, tc := range tests {
@@ -82,6 +85,21 @@ func TestConvertValue(t *testing.T) {
 	// CPU steal: raw ns pass-through
 	if v := convertValue(signalTypeCPUSteal, 50000); v != 50000.0 {
 		t.Errorf("cpu convert: got %f, want 50000.0", v)
+	}
+
+	// Mem reclaim: 500_000 ns -> 0.5 ms
+	if v := convertValue(signalTypeMemReclaim, 500000); v != 0.5 {
+		t.Errorf("mem_reclaim convert: got %f, want 0.5", v)
+	}
+
+	// Disk I/O: 2_000_000 ns -> 2.0 ms
+	if v := convertValue(signalTypeDiskIOLatency, 2000000); v != 2.0 {
+		t.Errorf("disk_io convert: got %f, want 2.0", v)
+	}
+
+	// Syscall: 5_000_000 ns -> 5.0 ms
+	if v := convertValue(signalTypeSyscallLat, 5000000); v != 5.0 {
+		t.Errorf("syscall convert: got %f, want 5.0", v)
 	}
 }
 

@@ -17,4 +17,8 @@ const (
 	AttrCFSThrottledMS    = "llm.ebpf.cpu.cfs_throttled_ms"
 	AttrRetrievalKernelMS = "llm.ebpf.retrieval.kernel_attributed_ms"
 	AttrRetryStorm        = "llm.ebpf.tcp.retry_storm"
+
+	AttrMemReclaimLatencyMS = "llm.ebpf.mm.reclaim_latency_ms"
+	AttrDiskIOLatencyMS     = "llm.ebpf.blk.io_latency_ms"
+	AttrSyscallLatencyMS    = "llm.ebpf.syscall.latency_ms"
 )

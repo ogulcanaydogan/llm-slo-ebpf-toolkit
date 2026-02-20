@@ -10,7 +10,10 @@ const (
 	SignalTLSHandshakeMS    = "tls_handshake_ms"
 	SignalTLSHandshakeFails = "tls_handshake_fail_total"
 	SignalCPUStealPct       = "cpu_steal_pct"
-	SignalCFSThrottledMS    = "cfs_throttled_ms"
+	SignalCFSThrottledMS       = "cfs_throttled_ms"
+	SignalMemReclaimLatencyMS  = "mem_reclaim_latency_ms"
+	SignalDiskIOLatencyMS      = "disk_io_latency_ms"
+	SignalSyscallLatencyMS     = "syscall_latency_ms"
 )
 
 // CapabilityMode defines probe coverage level.
@@ -32,6 +35,9 @@ var (
 		SignalTLSHandshakeFails,
 		SignalCPUStealPct,
 		SignalCFSThrottledMS,
+		SignalMemReclaimLatencyMS,
+		SignalDiskIOLatencyMS,
+		SignalSyscallLatencyMS,
 	}
 	bccSignalSet = []string{
 		SignalDNSLatencyMS,
@@ -39,8 +45,11 @@ var (
 	}
 	highCostDisableOrder = []string{
 		SignalTLSHandshakeMS,
+		SignalSyscallLatencyMS,
 		SignalRunqueueDelayMS,
+		SignalDiskIOLatencyMS,
 		SignalConnectLatencyMS,
+		SignalMemReclaimLatencyMS,
 		SignalCPUStealPct,
 		SignalDNSLatencyMS,
 		SignalTCPRetransmits,

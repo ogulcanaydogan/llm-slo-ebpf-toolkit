@@ -18,7 +18,7 @@ func main() {
 	candidateRef := flag.String("candidate-ref", firstNonEmpty(os.Getenv("GITHUB_REF_NAME"), os.Getenv("GITHUB_REF"), "local"), "candidate git ref")
 	candidateCommit := flag.String("candidate-commit", firstNonEmpty(os.Getenv("GITHUB_SHA"), "local"), "candidate git commit")
 	requireBaselineManifest := flag.Bool("require-baseline-manifest", false, "require baseline manifest and source independence check")
-	scenariosCSV := flag.String("scenarios", "dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed", "comma-separated scenario list")
+	scenariosCSV := flag.String("scenarios", "dns_latency,cpu_throttle,provider_throttle,memory_pressure,network_partition,mixed,mixed_multi", "comma-separated scenario list")
 	maxOverhead := flag.Float64("max-overhead-pct", 3.0, "B5 max collector CPU overhead percent")
 	maxVariance := flag.Float64("max-variance-pct", 10.0, "D3 max rerun variance percent")
 	minRuns := flag.Int("min-runs", 3, "D3 minimum reruns per scenario")

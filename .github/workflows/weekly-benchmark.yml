@@ -61,11 +61,11 @@ jobs:
           kubectl -n llm-slo-system set image daemonset/llm-slo-agent agent=llm-slo-agent:ci
           kubectl -n llm-slo-system rollout status daemonset/llm-slo-agent --timeout=180s
 
-      - name: Run full scenario matrix (6 scenarios × 3 reruns)
+      - name: Run full scenario matrix (7 scenarios × 3 reruns)
         run: |
           set -euo pipefail
           mkdir -p artifacts/weekly-benchmark
-          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed mixed_multi)
           for SCENARIO in "${SCENARIOS[@]}"; do
             echo "=== Running scenario: $SCENARIO ==="
             for RUN in 1 2 3; do
@@ -96,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/weekly-benchmark/baseline
-          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed mixed_multi)
           BASELINE_SOURCE_REF=""
           BASELINE_SOURCE_COMMIT=""
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
@@ -114,12 +114,22 @@ jobs:
             for SCENARIO in "${SCENARIOS[@]}"; do
               OUT_DIR="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/${SCENARIO}"
               mkdir -p "$OUT_DIR"
+              if [[ "$SCENARIO" == "mixed_multi" ]]; then
+                echo "Skipping mixed_multi in previous tag worktree baseline generation"
+                continue
+              fi
               go run ./cmd/faultinject \
                 --scenario "$SCENARIO" \
                 --count 36 \
                 --out "$OUT_DIR/raw_samples.jsonl"
             done
             popd
+            MIXED_MULTI_OUT="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/mixed_multi"
+            mkdir -p "$MIXED_MULTI_OUT"
+            go run ./cmd/faultinject \
+              --scenario mixed_multi \
+              --count 36 \
+              --out "$MIXED_MULTI_OUT/raw_samples.jsonl"
             cleanup
             trap - EXIT
           else
@@ -196,7 +206,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/weekly-benchmark
-          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed mixed_multi)
           for SCENARIO in "${SCENARIOS[@]}"; do
             echo "=== Running fallback scenario: $SCENARIO ==="
             for RUN in 1 2 3; do
@@ -226,7 +236,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/weekly-benchmark/baseline
-          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed)
+          SCENARIOS=(dns_latency cpu_throttle provider_throttle memory_pressure network_partition mixed mixed_multi)
           BASELINE_SOURCE_REF=""
           BASELINE_SOURCE_COMMIT=""
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
@@ -244,12 +254,22 @@ jobs:
             for SCENARIO in "${SCENARIOS[@]}"; do
               OUT_DIR="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/${SCENARIO}"
               mkdir -p "$OUT_DIR"
+              if [[ "$SCENARIO" == "mixed_multi" ]]; then
+                echo "Skipping mixed_multi in previous tag worktree baseline generation"
+                continue
+              fi
               go run ./cmd/faultinject \
                 --scenario "$SCENARIO" \
                 --count 36 \
                 --out "$OUT_DIR/raw_samples.jsonl"
             done
             popd
+            MIXED_MULTI_OUT="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/mixed_multi"
+            mkdir -p "$MIXED_MULTI_OUT"
+            go run ./cmd/faultinject \
+              --scenario mixed_multi \
+              --count 36 \
+              --out "$MIXED_MULTI_OUT/raw_samples.jsonl"
             cleanup
             trap - EXIT
           else

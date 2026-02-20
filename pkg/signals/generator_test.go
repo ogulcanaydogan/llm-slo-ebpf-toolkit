@@ -24,8 +24,8 @@ func TestGeneratorCoreFullEmitsRequiredSignals(t *testing.T) {
 	})
 
 	events := g.Generate(sample, Metadata{})
-	if len(events) < 6 {
-		t.Fatalf("expected at least 6 events, got %d", len(events))
+	if len(events) < 9 {
+		t.Fatalf("expected at least 9 events, got %d", len(events))
 	}
 
 	seen := map[string]bool{}
@@ -66,6 +66,59 @@ func TestGeneratorBCCModeFiltersSignalSet(t *testing.T) {
 	for _, event := range events {
 		if event.Signal != SignalDNSLatencyMS && event.Signal != SignalTCPRetransmits {
 			t.Fatalf("unexpected signal in bcc mode: %s", event.Signal)
+		}
+	}
+}
+
+func TestGeneratorEmitsNewV03Signals(t *testing.T) {
+	sample := collector.RawSample{
+		Timestamp:  time.Unix(1710000000, 0).UTC(),
+		FaultLabel: "memory_pressure",
+	}
+	g := NewGenerator(CapabilityCoreFull, nil, StaticMetadataEnricher{
+		Defaults: Metadata{
+			Node:      "kind-worker",
+			Namespace: "default",
+			Pod:       "rag-0",
+			Container: "rag",
+			PID:       100,
+			TID:       100,
+		},
+	})
+
+	events := g.Generate(sample, Metadata{})
+	seen := map[string]bool{}
+	for _, event := range events {
+		seen[event.Signal] = true
+	}
+
+	for _, signal := range []string{
+		SignalMemReclaimLatencyMS,
+		SignalDiskIOLatencyMS,
+		SignalSyscallLatencyMS,
+	} {
+		if !seen[signal] {
+			t.Errorf("v0.3 signal missing from Generate output: %s", signal)
+		}
+	}
+}
+
+func TestGeneratorMemoryPressureProfile(t *testing.T) {
+	sample := collector.RawSample{
+		Timestamp:  time.Unix(1710000000, 0).UTC(),
+		FaultLabel: "memory_pressure",
+	}
+	g := NewGenerator(CapabilityCoreFull, nil, StaticMetadataEnricher{
+		Defaults: Metadata{Node: "n", Namespace: "ns", Pod: "p", Container: "c", PID: 1, TID: 1},
+	})
+
+	events := g.Generate(sample, Metadata{})
+	for _, event := range events {
+		if event.Signal == SignalMemReclaimLatencyMS && event.Value < 20 {
+			t.Errorf("mem_reclaim_latency_ms under memory_pressure should be elevated, got %f", event.Value)
+		}
+		if event.Signal == SignalDiskIOLatencyMS && event.Value < 50 {
+			t.Errorf("disk_io_latency_ms under memory_pressure should be elevated, got %f", event.Value)
 		}
 	}
 }

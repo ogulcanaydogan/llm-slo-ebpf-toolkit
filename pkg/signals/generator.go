@@ -10,16 +10,19 @@ import (
 )
 
 type signalProfile struct {
-	dnsLatencyMS      float64
-	tcpRetransmits    float64
-	runqueueDelayMS   float64
-	connectLatencyMS  float64
-	connectErrors     float64
-	connectErrno      int
-	tlsHandshakeMS    float64
-	tlsHandshakeFails float64
-	cpuStealPct       float64
-	cfsThrottledMS    float64
+	dnsLatencyMS        float64
+	tcpRetransmits      float64
+	runqueueDelayMS     float64
+	connectLatencyMS    float64
+	connectErrors       float64
+	connectErrno        int
+	tlsHandshakeMS      float64
+	tlsHandshakeFails   float64
+	cpuStealPct         float64
+	cfsThrottledMS      float64
+	memReclaimLatencyMS float64
+	diskIOLatencyMS     float64
+	syscallLatencyMS    float64
 }
 
 // Generator emits normalized probe events for the configured signal set.
@@ -144,6 +147,9 @@ func (g *Generator) Generate(sample collector.RawSample, meta Metadata) []schema
 	appendIfEnabled(SignalTLSHandshakeFails, newEvent(sample.Timestamp, SignalTLSHandshakeFails, profile.tlsHandshakeFails, "count", meta, &tuple, 0, 0))
 	appendIfEnabled(SignalCPUStealPct, newEvent(sample.Timestamp, SignalCPUStealPct, profile.cpuStealPct, "pct", meta, nil, 0, 0))
 	appendIfEnabled(SignalCFSThrottledMS, newEvent(sample.Timestamp, SignalCFSThrottledMS, profile.cfsThrottledMS, "ms", meta, nil, 0, 0))
+	appendIfEnabled(SignalMemReclaimLatencyMS, newEvent(sample.Timestamp, SignalMemReclaimLatencyMS, profile.memReclaimLatencyMS, "ms", meta, nil, 0, 0))
+	appendIfEnabled(SignalDiskIOLatencyMS, newEvent(sample.Timestamp, SignalDiskIOLatencyMS, profile.diskIOLatencyMS, "ms", meta, nil, 0, 0))
+	appendIfEnabled(SignalSyscallLatencyMS, newEvent(sample.Timestamp, SignalSyscallLatencyMS, profile.syscallLatencyMS, "ms", meta, nil, 0, 0))
 
 	return out
 }
@@ -214,6 +220,12 @@ func signalStatus(signal string, value float64) string {
 		return threshold(value, 2, 8)
 	case SignalCFSThrottledMS:
 		return threshold(value, 40, 120)
+	case SignalMemReclaimLatencyMS:
+		return threshold(value, 5, 20)
+	case SignalDiskIOLatencyMS:
+		return threshold(value, 10, 50)
+	case SignalSyscallLatencyMS:
+		return threshold(value, 50, 200)
 	default:
 		return "ok"
 	}
@@ -231,16 +243,19 @@ func threshold(value float64, warning float64, errorCutoff float64) string {
 
 func profileForFault(faultLabel string) signalProfile {
 	base := signalProfile{
-		dnsLatencyMS:      12,
-		tcpRetransmits:    0.2,
-		runqueueDelayMS:   4,
-		connectLatencyMS:  18,
-		connectErrors:     0,
-		connectErrno:      0,
-		tlsHandshakeMS:    22,
-		tlsHandshakeFails: 0,
-		cpuStealPct:       0.6,
-		cfsThrottledMS:    5,
+		dnsLatencyMS:        12,
+		tcpRetransmits:      0.2,
+		runqueueDelayMS:     4,
+		connectLatencyMS:    18,
+		connectErrors:       0,
+		connectErrno:        0,
+		tlsHandshakeMS:      22,
+		tlsHandshakeFails:   0,
+		cpuStealPct:         0.6,
+		cfsThrottledMS:      5,
+		memReclaimLatencyMS: 0.5,
+		diskIOLatencyMS:     2,
+		syscallLatencyMS:    5,
 	}
 
 	switch faultLabel {
@@ -254,11 +269,14 @@ func profileForFault(faultLabel string) signalProfile {
 	case "memory_pressure":
 		base.runqueueDelayMS = 14
 		base.cfsThrottledMS = 90
+		base.memReclaimLatencyMS = 25
+		base.diskIOLatencyMS = 60
 	case "provider_throttle":
 		base.connectLatencyMS = 45
 		base.tlsHandshakeMS = 55
 		base.connectErrors = 1
 		base.connectErrno = 110
+		base.syscallLatencyMS = 250
 	case "network_partition":
 		base.connectLatencyMS = 350
 		base.connectErrors = 3

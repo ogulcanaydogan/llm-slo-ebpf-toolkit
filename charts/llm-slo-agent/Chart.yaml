@@ -1,0 +1,16 @@
+apiVersion: v2
+name: llm-slo-agent
+description: eBPF-based LLM inference SLO observability agent
+type: application
+version: 0.3.0
+appVersion: "0.3.0"
+keywords:
+  - ebpf
+  - llm
+  - slo
+  - observability
+  - inference
+home: https://github.com/ogulcanaydogan/llm-slo-ebpf-toolkit
+maintainers:
+  - name: Ogulcan Aydogan
+    url: https://github.com/ogulcanaydogan

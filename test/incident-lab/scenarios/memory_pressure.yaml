@@ -10,12 +10,16 @@ fault_profile:
   dns_latency_ms: 12
   connect_latency_ms: 18
   cpu_steal_pct: 0.6
+  mem_reclaim_latency_ms: 25
+  disk_io_latency_ms: 60
 
 expected_impact:
   ttft_breach: false
   primary_signal: cfs_throttled_ms
   secondary_signals:
     - runqueue_delay_ms
+    - mem_reclaim_latency_ms
+    - disk_io_latency_ms
   error_rate_elevated: true
 
 harness:

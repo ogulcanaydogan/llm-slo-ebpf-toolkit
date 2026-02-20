@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "llm-slo-agent.fullname" . }}-test-connection"
+  namespace: {{ include "llm-slo-agent.namespace" . }}
+  labels:
+    {{- include "llm-slo-agent.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "llm-slo-agent.fullname" . }}-metrics:{{ .Values.metrics.port }}/healthz']
+  restartPolicy: Never

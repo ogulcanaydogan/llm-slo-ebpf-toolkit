@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llm-slo-agent.fullname" . }}-metrics
+  namespace: {{ include "llm-slo-agent.namespace" . }}
+  labels:
+    {{- include "llm-slo-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "llm-slo-agent.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
