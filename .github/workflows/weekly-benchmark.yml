@@ -114,12 +114,22 @@ jobs:
             for SCENARIO in "${SCENARIOS[@]}"; do
               OUT_DIR="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/${SCENARIO}"
               mkdir -p "$OUT_DIR"
+              if [[ "$SCENARIO" == "mixed_multi" ]]; then
+                echo "Skipping mixed_multi in previous tag worktree baseline generation"
+                continue
+              fi
               go run ./cmd/faultinject \
                 --scenario "$SCENARIO" \
                 --count 36 \
                 --out "$OUT_DIR/raw_samples.jsonl"
             done
             popd
+            MIXED_MULTI_OUT="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/mixed_multi"
+            mkdir -p "$MIXED_MULTI_OUT"
+            go run ./cmd/faultinject \
+              --scenario mixed_multi \
+              --count 36 \
+              --out "$MIXED_MULTI_OUT/raw_samples.jsonl"
             cleanup
             trap - EXIT
           else
@@ -244,12 +254,22 @@ jobs:
             for SCENARIO in "${SCENARIOS[@]}"; do
               OUT_DIR="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/${SCENARIO}"
               mkdir -p "$OUT_DIR"
+              if [[ "$SCENARIO" == "mixed_multi" ]]; then
+                echo "Skipping mixed_multi in previous tag worktree baseline generation"
+                continue
+              fi
               go run ./cmd/faultinject \
                 --scenario "$SCENARIO" \
                 --count 36 \
                 --out "$OUT_DIR/raw_samples.jsonl"
             done
             popd
+            MIXED_MULTI_OUT="$GITHUB_WORKSPACE/artifacts/weekly-benchmark/baseline/mixed_multi"
+            mkdir -p "$MIXED_MULTI_OUT"
+            go run ./cmd/faultinject \
+              --scenario mixed_multi \
+              --count 36 \
+              --out "$MIXED_MULTI_OUT/raw_samples.jsonl"
             cleanup
             trap - EXIT
           else
