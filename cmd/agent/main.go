@@ -29,6 +29,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var version = "dev"
+
 const (
 	schemaPathSLO   = "docs/contracts/v1/slo-event.schema.json"
 	schemaPathProbe = "docs/contracts/v1alpha1/probe-event.schema.json"
@@ -324,6 +326,11 @@ func startMetricsServer(bind string, metrics *agentMetrics) {
 }
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	var (
 		cluster   = flag.String("cluster", "local", "cluster name")
 		namespace = flag.String("namespace", "default", "namespace")

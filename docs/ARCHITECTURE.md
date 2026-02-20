@@ -6,9 +6,9 @@ The eBPF + LLM Inference SLO Toolkit is a Kubernetes-native observability system
 
 The system operates as a three-stage pipeline:
 
-1. **Collection** — eBPF probes capture 6 kernel signals (DNS latency, TCP retransmits, runqueue delay, connect latency, TLS handshake, CPU steal) from each node.
+1. **Collection** — eBPF probes capture 9 kernel signals (DNS latency, TCP retransmits, runqueue delay, connect latency, TLS handshake, CPU steal, memory reclaim latency, disk I/O latency, syscall latency) from each node.
 2. **Correlation** — A tiered confidence model joins kernel signals to OTel spans using trace IDs, process identity, connection tuples, or service locality.
-3. **Attribution** — Pattern classification maps signal combinations to fault domains (provider throttle, DNS outage, CPU contention, memory pressure, network partition) with measurable confidence.
+3. **Attribution** — Bayesian multi-fault classification computes posterior probabilities over 8 fault domains, producing ranked hypotheses with measurable confidence.
 
 ```
                     ┌──────────────────────────────────┐
@@ -20,6 +20,9 @@ The system operates as a three-stage pipeline:
                     │  kprobe/tcp_v4_connect             │
                     │  kprobe/ssl_do_handshake (TLS)    │
                     │  /proc/stat polling (CPU steal)   │
+                    │  tp/vmscan (mem reclaim)          │
+                    │  tp/block (disk I/O)              │
+                    │  kprobe/ksys_read|write (syscall) │
                     │                                   │
                     └─────────┬─────────────────────────┘
                               │ BPF ring buffer (mmap)
@@ -41,15 +44,15 @@ The system operates as a three-stage pipeline:
           └───────────────────┼─────────────────────────┘
                               ▼
                     ┌──────────────────────────────────┐
-                    │       Attribution Engine          │
-                    │  pattern match → fault domain     │
+                    │   Bayesian Attribution Engine     │
+                    │  P(fault|signals) → hypotheses    │
                     │  confusion matrix + evidence      │
                     └─────────┬─────────────────────────┘
                               │
-              ┌───────────────┼────────────────────┐
-              ▼               ▼                    ▼
-         Grafana        Incident Reports     Benchmark Artifacts
-         (3 dashboards)  (CSV/JSON)          (provenance + gates)
+              ┌───────────┬───┼───────────┬──────────────┐
+              ▼           ▼   ▼           ▼              ▼
+         Grafana      Webhook  Incident   Benchmark   CD Gate
+         (dashboards) (HMAC)   Reports    Artifacts   (Prometheus)
 ```
 
 ## Package Structure
@@ -66,8 +69,9 @@ The system operates as a three-stage pipeline:
 | `faultinject` | Raw fault injection harness for controlled scenario testing. |
 | `correlationeval` | Correlation quality gate evaluator. Validates precision/recall against labeled dataset. |
 | `m5gate` | M5 GA gate enforcement. Evaluates B5 overhead, D3 variance, and E3 significance gates. |
-| `sloctl` | CLI prerequisite checker. Validates kernel eBPF support, BTF, capabilities. |
+| `sloctl` | CLI toolkit: `prereq check` validates kernel eBPF support; `cdgate check` enforces Prometheus-based SLO gates. |
 | `loadgen` | Synthetic load generator for deterministic JSONL request traces. |
+| `schemavalidate` | JSON schema contract validator for SLO, attribution, probe, and config schemas. |
 
 ### Library Packages (`pkg/`)
 
@@ -80,7 +84,9 @@ The system operates as a three-stage pipeline:
 | `otel/processor/ebpfcorrelator` | OTel correlator processor for signal-to-span enrichment using 4-tier confidence model |
 | `correlation` | Confidence matching, retry storm detection, retrieval latency decomposition, quality evaluator |
 | `benchmark` | Benchmark harness, artifact generation, report templating |
-| `attribution` | Incident attribution mapping, confusion matrix calculation, fault domain classification |
+| `attribution` | Bayesian multi-fault attribution, confusion matrix, partial/coverage accuracy, rule-based mapper |
+| `webhook` | HMAC-SHA256 signed webhook delivery with PagerDuty, Opsgenie, and generic payload formats |
+| `cdgate` | Prometheus-based SLO gate evaluation (TTFT p95, error rate, burn rate) for CD pipelines |
 | `safety` | Overhead guard, rate limiter, backpressure controls |
 | `prereq` | Environment prerequisite checks (Go version, eBPF support, libbpf, kernel) |
 | `schema` | JSON schema validator, v1 SLO/attribution types, v1alpha1 probe event types |
@@ -144,17 +150,18 @@ The normalized attribution envelope:
 
 ```go
 type IncidentAttribution struct {
-    IncidentID           string     `json:"incident_id"`
-    Timestamp            time.Time  `json:"timestamp"`
-    Cluster              string     `json:"cluster"`
-    Namespace            string     `json:"namespace,omitempty"`
-    Service              string     `json:"service"`
-    PredictedFaultDomain string     `json:"predicted_fault_domain"`
-    Confidence           float64    `json:"confidence"`
-    Evidence             []Evidence `json:"evidence"`
-    SLOImpact            SLOImpact  `json:"slo_impact"`
-    TraceIDs             []string   `json:"trace_ids,omitempty"`
-    RequestIDs           []string   `json:"request_ids,omitempty"`
+    IncidentID           string            `json:"incident_id"`
+    Timestamp            time.Time         `json:"timestamp"`
+    Cluster              string            `json:"cluster"`
+    Namespace            string            `json:"namespace,omitempty"`
+    Service              string            `json:"service"`
+    PredictedFaultDomain string            `json:"predicted_fault_domain"`
+    Confidence           float64           `json:"confidence"`
+    FaultHypotheses      []FaultHypothesis `json:"fault_hypotheses,omitempty"`
+    Evidence             []Evidence        `json:"evidence"`
+    SLOImpact            SLOImpact         `json:"slo_impact"`
+    TraceIDs             []string          `json:"trace_ids,omitempty"`
+    RequestIDs           []string          `json:"request_ids,omitempty"`
 }
 ```
 
@@ -170,6 +177,9 @@ All programs reside under `ebpf/c/` and use libbpf CO-RE (Compile Once, Run Ever
 | `connect_latency.bpf.c` | kprobe/tcp_v4_connect | TCP connection establishment time (ms) |
 | `tls_handshake.bpf.c` | kprobe/ssl_do_handshake | TLS handshake duration (ms) |
 | `cpu_steal.bpf.c` | /proc/stat polling (userspace) | Hypervisor CPU steal time (%) |
+| `mem_reclaim.bpf.c` | tracepoint/vmscan/mm_vmscan_direct_reclaim_{begin,end} | Memory reclaim latency (ms) |
+| `disk_io_latency.bpf.c` | tracepoint/block/block_rq_{issue,complete} | Block device I/O latency (ms) |
+| `syscall_latency.bpf.c` | kprobe/kretprobe ksys_read + ksys_write | Read/write syscall latency (ms) |
 | `minimal.bpf.c` | tracepoint/sys_enter_write | Minimal CO-RE validation probe |
 | `hello_sys_enter_write.bpf.c` | tracepoint/sys_enter_write | Hello-world syscall counter for smoke tests |
 
@@ -228,6 +238,9 @@ signal_set:
   - connect_latency_ms
   - tls_handshake_ms
   - cpu_steal_pct
+  - mem_reclaim_latency_ms
+  - disk_io_latency_ms
+  - syscall_latency_ms
 sampling:
   events_per_second_limit: 10000
   burst_limit: 20000
@@ -237,6 +250,18 @@ otlp:
   endpoint: http://otel-collector:4317
 safety:
   max_overhead_pct: 5
+webhook:
+  enabled: false
+  url: ""
+  secret: ""
+  format: generic          # generic | pagerduty | opsgenie
+  timeout_ms: 5000
+cdgate:
+  enabled: false
+  prometheus_url: http://prometheus:9090
+  ttft_p95_ms: 800
+  error_rate: 0.05
+  burn_rate: 3.0
 ```
 
 Schema validation enforced by `config/toolkit.schema.json`. Configuration loads via `pkg/toolkitcfg` with CLI flag overrides.
@@ -273,13 +298,13 @@ Kustomize overlay for environments that reject privileged pods:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | Push/PR | Build, lint, test, schema validation, correlation gate, fault-injection smoke |
+| `ci.yml` | Push/PR | Build, lint, test, schema validation, correlation gate, fault-injection smoke, helm lint, webhook smoke, CD gate smoke, multi-fault attribution test |
 | `pr-privileged-ebpf-smoke.yml` | PR (labeled) | Privileged eBPF smoke on self-hosted runner |
 | `nightly-ebpf-integration.yml` | Nightly schedule | Full eBPF integration in kind cluster |
-| `weekly-benchmark.yml` | Weekly schedule | 6 scenarios x 3 reruns with M5 gate evaluation |
+| `weekly-benchmark.yml` | Weekly schedule | 7 scenarios (incl. mixed_multi) x 3 reruns with M5 gate evaluation |
 | `e2e-evidence-report.yml` | Manual | Deterministic evidence bundle generation |
 | `kernel-compatibility-matrix.yml` | Weekly | Multi-kernel compatibility probing |
-| `release.yml` | Tag push (`v*`) | Cross-compiled binaries, container images, SBOM, cosign signing, provenance |
+| `release.yml` | Tag push (`v*`) | Cross-compiled binaries, container images, Helm chart OCI push, SBOM, cosign signing, provenance |
 | `runner-health.yml` | Daily | Self-hosted runner health monitoring |
 
 ## Design Decisions
@@ -307,3 +332,19 @@ Four independent gates prevent regression. B5 (overhead) ensures the agent stays
 ### 6. Schema Validation at Every Stage
 
 JSON schema validation (`docs/contracts/v1/`, `docs/contracts/v1alpha1/`) runs at collection, correlation, and attribution. CI enforces `make schema-validate`. Schemas serve as the contract between pipeline stages and enable independent component evolution.
+
+### 7. Bayesian Multi-Fault Attribution
+
+Rule-based single-fault attribution breaks down when multiple faults co-occur (e.g., DNS latency + CPU throttling). The Bayesian engine computes P(fault|signals) = P(fault) × ∏P(signal_i|fault) / Z over all 8 fault domains simultaneously, returning ranked `FaultHypothesis` entries. This enables operators to see that an incident has, for example, 60% network_dns + 30% cpu_throttle rather than a single hard classification. Multi-fault evaluation uses `PartialAccuracy` (top-1 in expected set) and `CoverageAccuracy` (hypothesis coverage above threshold).
+
+### 8. Webhook Exporter
+
+Incident attributions are delivered to external systems via webhook with HMAC-SHA256 signing (`X-Webhook-Signature: sha256=...`). Three payload formats are supported: generic JSON (raw `IncidentAttribution`), PagerDuty Events API v2, and Opsgenie Alert API. Exponential backoff retry (3 attempts) handles transient failures; 4xx errors are non-retryable.
+
+### 9. CD Gate
+
+The CD gate (`sloctl cdgate check`) queries Prometheus instant API for TTFT p95, error rate, and burn rate. If any metric exceeds configured thresholds, the gate fails with exit code 1, blocking deployment. `--fail-open` allows degraded Prometheus to pass rather than block. This integrates with ArgoCD PreSync hooks, Flux health checks, and GitHub Actions CI steps.
+
+### 10. Helm Chart
+
+The Helm chart (`charts/llm-slo-agent/`) produces identical resources to the kustomize deployment but with full parameterization via `values.yaml`. All agent flags, signal sets, webhook, and CD gate configuration are templatable. OCI registry publication enables `helm install` from GHCR.

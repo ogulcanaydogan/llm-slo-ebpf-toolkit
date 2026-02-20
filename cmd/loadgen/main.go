@@ -21,7 +21,14 @@ type requestEvent struct {
 	ExpectedTTFTMs int       `json:"expected_ttft_ms"`
 }
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	profile := flag.String("profile", "rag_mixed_20rps", "load profile")
 	duration := flag.Int("duration-sec", 60, "generation duration in seconds")
 	rps := flag.Int("rps", 20, "requests per second")

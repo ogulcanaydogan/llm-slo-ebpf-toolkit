@@ -20,7 +20,14 @@ type check struct {
 	run  func(root string) error
 }
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	root := projectRoot()
 	checks := []check{
 		{name: "schema document parse", run: validateSchemaDocuments},

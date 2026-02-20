@@ -11,7 +11,14 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/releasegate"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	candidateRoot := flag.String("candidate-root", filepath.Join("artifacts", "weekly-benchmark"), "candidate benchmark root")
 	baselineRoot := flag.String("baseline-root", filepath.Join("artifacts", "weekly-benchmark", "baseline"), "baseline benchmark root")
 	baselineManifest := flag.String("baseline-manifest", filepath.Join("artifacts", "weekly-benchmark", "baseline", "manifest.json"), "baseline manifest path")

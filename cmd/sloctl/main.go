@@ -9,6 +9,8 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/prereq"
 )
 
+var version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -16,6 +18,9 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "--version", "version":
+		fmt.Println(version)
+		return
 	case "prereq":
 		runPrereq(os.Args[2:])
 	case "cdgate":

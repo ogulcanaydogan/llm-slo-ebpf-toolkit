@@ -33,7 +33,14 @@ type summaryPayload struct {
 	ConfusionPath         string         `json:"confusion_path,omitempty"`
 }
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	defaultConfigPath := filepath.Join("config", "toolkit.yaml")
 	configPathValue := resolveConfigPath(os.Args[1:], defaultConfigPath)
 	cfg := toolkitcfg.Default()

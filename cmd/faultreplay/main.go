@@ -11,7 +11,14 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/faultreplay"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	scenario := flag.String("scenario", "mixed", "fault scenario")
 	count := flag.Int("count", 30, "number of samples to emit")
 	out := flag.String("out", "artifacts/fault-replay/fault_samples.jsonl", "output JSONL path")

@@ -476,7 +476,8 @@ cmd/
 ├── correlationeval/ # Correlation quality gate evaluator
 ├── m5gate/          # M5 GA gate bundle evaluator (B5/D3/E3)
 ├── sloctl/          # CLI toolkit (prereq check, CD gate)
-└── loadgen/         # Load generation utility
+├── loadgen/         # Load generation utility
+└── schemavalidate/  # JSON schema contract validator
 
 pkg/
 ├── schema/          # v1 JSON schema types (SLOEvent, IncidentAttribution, ProbeEvent)
@@ -612,7 +613,7 @@ This methodology is designed to meet the evidentiary standards of peer-reviewed 
 
 ```mermaid
 gantt
-    title v0.2 Release Plan
+    title Release Plan
     dateFormat  YYYY-MM-DD
     axisFormat  %b %d
 
@@ -632,7 +633,10 @@ gantt
     M4 Six scenarios · dashboards · alerts :done, m4, 2026-03-24, 2026-03-30
 
     section Release
-    M5 v0.2 GA · overhead ≤3% · SBOM      :active, m5, 2026-03-31, 2026-04-13
+    M5 v0.2 GA · overhead ≤3% · SBOM      :done, m5, 2026-03-31, 2026-04-13
+
+    section v0.3
+    M6 v0.3 · Bayesian · Helm · webhook   :done, m6, 2026-04-14, 2026-04-28
 ```
 
 | Milestone | Status | Key Deliverables |
@@ -642,7 +646,8 @@ gantt
 | M2: Signals v1 | Complete | Six CO-RE eBPF probes, ring buffer consumer, probe manager, BCC fallback, safety integration |
 | M3: Correlation | Complete | Production correlator (P=1.00, R=1.00), retrieval decomposition, retry storm detection, 55 labeled pairs |
 | M4: Incident Lab | Complete | Six deterministic scenarios, Prometheus alerting rules, declarative scenario YAMLs |
-| M5: Bench + Release | In progress | v0.2 GA, overhead ≤ 3%, release workflow with SBOM, checksums, and provenance |
+| M5: Bench + Release | Complete | v0.2 GA, overhead ≤ 3%, release workflow with SBOM, checksums, and provenance |
+| M6: v0.3 | Complete | 3 new eBPF probes (9 total), Bayesian multi-fault attribution, Helm chart, webhook exporter, CD gate, 55-sample multi-fault dataset |
 
 ## Documentation
 
