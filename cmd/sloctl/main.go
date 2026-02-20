@@ -18,6 +18,8 @@ func main() {
 	switch os.Args[1] {
 	case "prereq":
 		runPrereq(os.Args[2:])
+	case "cdgate":
+		runCDGate(os.Args[2:])
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -109,6 +111,7 @@ func emptyFallback(value string, fallback string) string {
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  sloctl prereq check [--output text|json] [--strict]")
+	fmt.Println("  sloctl cdgate check [--config PATH] [--prometheus-url URL] [--ttft-p95-ms N] [--error-rate N] [--burn-rate N] [--fail-open] [--output text|json]")
 }
 
 func printPrereqUsage() {
