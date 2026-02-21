@@ -209,6 +209,9 @@ func signalFromType(st uint32) (string, string) {
 	case signalTypeTLSHandshake:
 		return "tls_handshake_ms", "ms"
 	case signalTypeCPUSteal:
+		// Unit is "ns" at the kernel boundary; Go-side aggregation converts
+		// accumulated nanoseconds to a percentage over the sampling window.
+		// See convertValue() which passes the raw value through unchanged.
 		return "cpu_steal_pct", "ns"
 	case signalTypeMemReclaim:
 		return "mem_reclaim_latency_ms", "ms"

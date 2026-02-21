@@ -13,7 +13,14 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/correlation"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	inputPath := flag.String(
 		"input",
 		filepath.Join("pkg", "correlation", "testdata", "labeled_pairs.jsonl"),

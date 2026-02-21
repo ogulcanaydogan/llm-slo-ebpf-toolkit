@@ -21,4 +21,7 @@ const (
 	AttrMemReclaimLatencyMS = "llm.ebpf.mm.reclaim_latency_ms"
 	AttrDiskIOLatencyMS     = "llm.ebpf.blk.io_latency_ms"
 	AttrSyscallLatencyMS    = "llm.ebpf.syscall.latency_ms"
+
+	AttrConnectErrors      = "llm.ebpf.net.connect_errors_total"
+	AttrTLSHandshakeFails  = "llm.ebpf.tls.handshake_fail_total"
 )

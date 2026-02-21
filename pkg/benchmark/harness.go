@@ -181,6 +181,10 @@ func loadSamples(scenario string, inputPath string) ([]attribution.FaultSample, 
 		return buildMixedFaultSamples(), nil
 	}
 
+	if scenario == "mixed_multi" {
+		return buildMixedMultiSamples(), nil
+	}
+
 	faultLabel := scenario
 	expectedDomain := attribution.MapFaultLabel(faultLabel)
 	if expectedDomain == "unknown" {
@@ -212,6 +216,50 @@ func buildMixedFaultSamples() []attribution.FaultSample {
 	}
 	for idx, label := range labels {
 		samples = append(samples, buildSample(label, attribution.MapFaultLabel(label), idx))
+	}
+	return samples
+}
+
+func buildMixedMultiSamples() []attribution.FaultSample {
+	type combo struct {
+		label   string
+		domains []string
+	}
+	combos := []combo{
+		{"mixed", []string{"network_dns", "cpu_throttle"}},
+		{"mixed", []string{"provider_throttle", "memory_pressure"}},
+		{"mixed", []string{"network_egress", "provider_throttle"}},
+		{"mixed", []string{"cpu_throttle", "memory_pressure"}},
+		{"mixed", []string{"network_dns", "memory_pressure"}},
+		{"mixed", []string{"network_dns", "provider_throttle", "cpu_throttle"}},
+		{"dns_latency", []string{"network_dns"}},
+		{"cpu_throttle", []string{"cpu_throttle"}},
+		{"provider_throttle", []string{"provider_throttle"}},
+		{"memory_pressure", []string{"memory_pressure"}},
+		{"network_partition", []string{"network_egress"}},
+		{"mixed", []string{"network_dns", "network_egress"}},
+	}
+	samples := make([]attribution.FaultSample, 0, len(combos))
+	for idx, c := range combos {
+		timestamp := time.Now().UTC().Add(time.Duration(idx) * time.Second)
+		s := attribution.FaultSample{
+			IncidentID:      fmt.Sprintf("mm-%02d", idx+1),
+			Timestamp:       timestamp,
+			Cluster:         "local",
+			Namespace:       "default",
+			Service:         "chat",
+			FaultLabel:      c.label,
+			ExpectedDomains: c.domains,
+			Confidence:      0.85,
+			BurnRate:        2.0,
+			WindowMinutes:   5,
+			RequestID:       fmt.Sprintf("req-mm-%02d", idx+1),
+			TraceID:         fmt.Sprintf("trace-mm-%02d", idx+1),
+		}
+		if len(c.domains) == 1 {
+			s.ExpectedDomain = c.domains[0]
+		}
+		samples = append(samples, s)
 	}
 	return samples
 }

@@ -14,7 +14,14 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/schema"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	inputPath := flag.String("input", "-", "raw sample input JSONL path or '-' for stdin")
 	outputMode := flag.String("output", "stdout", "output mode: stdout|jsonl|otlp")
 	outputPath := flag.String("output-path", "artifacts/collector/slo-events.jsonl", "output path when output=jsonl")

@@ -65,6 +65,33 @@ func TestGenerateArtifactsWithInputFixture(t *testing.T) {
 	}
 }
 
+func TestGenerateArtifactsMixedMultiScenario(t *testing.T) {
+	tmp := t.TempDir()
+	if err := GenerateArtifacts(tmp, "mixed_multi", "rag_mixed"); err != nil {
+		t.Fatalf("generate artifacts: %v", err)
+	}
+
+	required := []string{
+		"attribution_summary.json",
+		"confusion-matrix.csv",
+		"incident_predictions.csv",
+		"collector_overhead.csv",
+		"provenance.json",
+		"report.md",
+	}
+	for _, name := range required {
+		if _, err := os.Stat(filepath.Join(tmp, name)); err != nil {
+			t.Fatalf("missing artifact %s: %v", name, err)
+		}
+	}
+
+	// mixed_multi should produce samples with multi-fault expected domains
+	rows := readCSVRows(t, filepath.Join(tmp, "incident_predictions.csv"))
+	if len(rows) < 2 {
+		t.Fatal("expected at least 2 rows (header + data) in incident_predictions.csv")
+	}
+}
+
 func readCSVRows(t *testing.T, path string) []string {
 	t.Helper()
 	file, err := os.Open(path)

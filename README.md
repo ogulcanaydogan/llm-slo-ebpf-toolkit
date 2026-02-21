@@ -1,5 +1,9 @@
 # LLM SLO eBPF Toolkit
 
+[![CI](https://github.com/ogulcanaydogan/LLM-SLO-eBPF-Toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/ogulcanaydogan/LLM-SLO-eBPF-Toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ogulcanaydogan/llm-slo-ebpf-toolkit)](https://goreportcard.com/report/github.com/ogulcanaydogan/llm-slo-ebpf-toolkit)
+
 **Kernel-grounded observability for LLM reliability engineering.**
 
 A Kubernetes-native toolkit that uses eBPF to capture kernel-level signals — DNS latency, TCP retransmits, scheduling delays, connection timing, TLS handshakes, CPU steal, memory reclaim latency, disk I/O latency, and syscall latency — and correlates them with OpenTelemetry traces and Kubernetes workload identity to produce Bayesian multi-fault incident attributions for LLM service-level objectives.
@@ -476,7 +480,8 @@ cmd/
 ├── correlationeval/ # Correlation quality gate evaluator
 ├── m5gate/          # M5 GA gate bundle evaluator (B5/D3/E3)
 ├── sloctl/          # CLI toolkit (prereq check, CD gate)
-└── loadgen/         # Load generation utility
+├── loadgen/         # Load generation utility
+└── schemavalidate/  # JSON schema contract validator
 
 pkg/
 ├── schema/          # v1 JSON schema types (SLOEvent, IncidentAttribution, ProbeEvent)
@@ -612,7 +617,7 @@ This methodology is designed to meet the evidentiary standards of peer-reviewed 
 
 ```mermaid
 gantt
-    title v0.2 Release Plan
+    title Release Plan
     dateFormat  YYYY-MM-DD
     axisFormat  %b %d
 
@@ -632,7 +637,10 @@ gantt
     M4 Six scenarios · dashboards · alerts :done, m4, 2026-03-24, 2026-03-30
 
     section Release
-    M5 v0.2 GA · overhead ≤3% · SBOM      :active, m5, 2026-03-31, 2026-04-13
+    M5 v0.2 GA · overhead ≤3% · SBOM      :done, m5, 2026-03-31, 2026-04-13
+
+    section v0.3
+    M6 v0.3 · Bayesian · Helm · webhook   :done, m6, 2026-04-14, 2026-04-28
 ```
 
 | Milestone | Status | Key Deliverables |
@@ -642,7 +650,8 @@ gantt
 | M2: Signals v1 | Complete | Six CO-RE eBPF probes, ring buffer consumer, probe manager, BCC fallback, safety integration |
 | M3: Correlation | Complete | Production correlator (P=1.00, R=1.00), retrieval decomposition, retry storm detection, 55 labeled pairs |
 | M4: Incident Lab | Complete | Six deterministic scenarios, Prometheus alerting rules, declarative scenario YAMLs |
-| M5: Bench + Release | In progress | v0.2 GA, overhead ≤ 3%, release workflow with SBOM, checksums, and provenance |
+| M5: Bench + Release | Complete | v0.2 GA, overhead ≤ 3%, release workflow with SBOM, checksums, and provenance |
+| M6: v0.3 | Complete | 3 new eBPF probes (9 total), Bayesian multi-fault attribution, Helm chart, webhook exporter, CD gate, 55-sample multi-fault dataset |
 
 ## Documentation
 
@@ -650,7 +659,8 @@ gantt
 |---|---|
 | [Differentiation Strategy](docs/strategy/differentiation-strategy.md) | Competitive analysis against 10 adjacent tools with gap assessment |
 | [v0.2 Build Plan](docs/strategy/v0.2-build-plan.md) | Milestone schedule, hard gates, and acceptance criteria |
-| [Go/No-Go Checklist](docs/strategy/v0.2-go-no-go-checklist.md) | Release gate tracking for contract, signal, correlation, and benchmark readiness |
+| [v0.2 Go/No-Go Checklist](docs/strategy/v0.2-go-no-go-checklist.md) | v0.2 release gate tracking |
+| [v0.3 Go/No-Go Checklist](docs/strategy/v0.3-go-no-go-checklist.md) | v0.3 release gate tracking (A–G sections, all PASS) |
 | [Why This Exists](docs/strategy/why-this-exists-security-sre.md) | Problem statement for SRE, platform, and security teams |
 | [Demo Stories](docs/strategy/killer-demo-stories.md) | Five demo scenarios with measurable win conditions |
 | [SLO Event Schema](docs/contracts/v1/slo-event.schema.json) | Stable v1 contract for SLO event outputs |
@@ -661,6 +671,11 @@ gantt
 | [Runner Security Baseline](docs/security/self-hosted-runner-baseline.md) | CI runner isolation and credential management |
 | [Kernel Compatibility Matrix](docs/compatibility.md) | Kernel-profile compatibility checks for labeled self-hosted runners |
 | [Agent Min-Capability Mode](docs/security/agent-min-capability-mode.md) | Non-privileged deployment profile and tradeoffs |
+| [Helm Installation Guide](docs/guides/helm-installation.md) | Deploy the agent via Helm chart |
+| [Webhook Integration Guide](docs/guides/webhook-integration.md) | Configure PagerDuty, Opsgenie, and generic webhook delivery |
+| [CD Gate Guide](docs/guides/cd-gate.md) | Prometheus-based SLO gate for deployment pipelines |
+| [Architecture](docs/ARCHITECTURE.md) | System design, data flow, and package structure |
+| [v0.3.0 Release Notes](docs/releases/v0.3.0.md) | Consolidated release notes for v0.3.0 |
 
 ## Licence
 

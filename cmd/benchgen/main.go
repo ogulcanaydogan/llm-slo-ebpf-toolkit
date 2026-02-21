@@ -9,7 +9,14 @@ import (
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/benchmark"
 )
 
+var version = "dev"
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	out := flag.String("out", "artifacts/benchmarks", "output directory")
 	scenario := flag.String("scenario", "provider_throttle", "fault scenario")
 	workload := flag.String("workload", "rag_mixed", "workload profile")

@@ -17,15 +17,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/attribution"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/collector"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/otel"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/safety"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/schema"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/signals"
 	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/toolkitcfg"
+	"github.com/ogulcanaydogan/llm-slo-ebpf-toolkit/pkg/webhook"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+var version = "dev"
 
 const (
 	schemaPathSLO   = "docs/contracts/v1/slo-event.schema.json"
@@ -322,6 +326,11 @@ func startMetricsServer(bind string, metrics *agentMetrics) {
 }
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Println(version)
+		return
+	}
+
 	var (
 		cluster   = flag.String("cluster", "local", "cluster name")
 		namespace = flag.String("namespace", "default", "namespace")
@@ -345,6 +354,11 @@ func main() {
 			"OTLP/HTTP logs endpoint when output=otlp",
 		)
 		otlpTimeoutMS = flag.Int("otlp-timeout-ms", 5000, "OTLP export timeout in milliseconds")
+
+		webhookURL       = flag.String("webhook-url", "", "webhook endpoint URL (empty = disabled)")
+		webhookSecret    = flag.String("webhook-secret", "", "HMAC-SHA256 secret for webhook signing")
+		webhookFormat    = flag.String("webhook-format", "generic", "webhook payload format: generic|pagerduty|opsgenie")
+		webhookTimeoutMS = flag.Int("webhook-timeout-ms", 5000, "webhook HTTP timeout in milliseconds")
 
 		capabilityMode      = flag.String("capability-mode", "auto", "capability mode: auto|core_full|bcc_degraded")
 		disableSignals      = flag.String("disable-signals", "", "comma-separated signal names to disable")
@@ -408,6 +422,33 @@ func main() {
 		os.Exit(1)
 	}
 	defer writers.Close()
+
+	// Resolve webhook config: CLI flags override config file values.
+	whURL := *webhookURL
+	whSecret := *webhookSecret
+	whFormat := *webhookFormat
+	whTimeout := *webhookTimeoutMS
+	if whURL == "" && cfg.Webhook.Enabled && cfg.Webhook.URL != "" {
+		whURL = cfg.Webhook.URL
+		whSecret = cfg.Webhook.Secret
+		if cfg.Webhook.Format != "" {
+			whFormat = cfg.Webhook.Format
+		}
+		if cfg.Webhook.TimeoutMS > 0 {
+			whTimeout = cfg.Webhook.TimeoutMS
+		}
+	}
+
+	var webhookExporter *webhook.Exporter
+	if whURL != "" {
+		webhookExporter = webhook.New(whURL, whSecret, webhook.Format(whFormat), whTimeout)
+		log.Printf("webhook exporter enabled: %s (format=%s)", whURL, whFormat)
+	}
+
+	var bayesAttributor *attribution.BayesianAttributor
+	if webhookExporter != nil {
+		bayesAttributor = attribution.NewBayesianAttributor()
+	}
 
 	metrics := newAgentMetrics(*eventKind, string(mode), supportedSignals, generator.EnabledSignals())
 	startMetricsServer(*metricsBind, metrics)
@@ -520,6 +561,26 @@ func main() {
 			if err := writers.EmitProbe(event); err != nil {
 				metrics.IncDropped("emit")
 				log.Printf("probe emit failed: %v", err)
+			}
+		}
+
+		if webhookExporter != nil {
+			faultSample := attribution.FaultSample{
+				IncidentID:    fmt.Sprintf("agent-%s-%d", sample.TraceID, idx),
+				Timestamp:     now,
+				Cluster:       *cluster,
+				Namespace:     *namespace,
+				Service:       *service,
+				FaultLabel:    sample.FaultLabel,
+				Confidence:    0.9,
+				BurnRate:      2.0,
+				WindowMinutes: 5,
+				RequestID:     sample.RequestID,
+				TraceID:       sample.TraceID,
+			}
+			attr := bayesAttributor.AttributeSample(faultSample)
+			if err := webhookExporter.Send(attr); err != nil {
+				log.Printf("webhook send failed: %v", err)
 			}
 		}
 

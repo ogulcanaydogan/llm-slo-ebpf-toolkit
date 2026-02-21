@@ -162,6 +162,10 @@ func signalAttrKey(signal string) (string, bool) {
 		return semconv.AttrDiskIOLatencyMS, true
 	case "syscall_latency_ms":
 		return semconv.AttrSyscallLatencyMS, true
+	case "connect_errors_total":
+		return semconv.AttrConnectErrors, true
+	case "tls_handshake_fail_total":
+		return semconv.AttrTLSHandshakeFails, true
 	default:
 		return "", false
 	}
